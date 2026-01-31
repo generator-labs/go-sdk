@@ -26,6 +26,7 @@ type RequestHandler struct {
 	accountSID string
 	authToken  string
 	baseURL    string
+	config     *Config
 	client     *retryablehttp.Client
 }
 
@@ -39,13 +40,13 @@ type APIError struct {
 }
 
 // NewRequestHandler creates a new request handler
-func NewRequestHandler(accountSID, authToken, baseURL string) *RequestHandler {
+func NewRequestHandler(accountSID, authToken string, config *Config) *RequestHandler {
 	// Create retryable HTTP client
 	client := retryablehttp.NewClient()
-	client.RetryMax = 3 // Maximum 3 retries
+	client.RetryMax = config.MaxRetries
 	client.RetryWaitMin = 1 * time.Second
-	client.RetryWaitMax = 4 * time.Second
-	client.HTTPClient.Timeout = 30 * time.Second
+	client.RetryWaitMax = time.Duration(math.Pow(2, float64(config.MaxRetries-1))) * time.Second
+	client.HTTPClient.Timeout = config.Timeout
 
 	// Custom retry policy for 5xx and 429 errors
 	client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
@@ -62,12 +63,12 @@ func NewRequestHandler(accountSID, authToken, baseURL string) *RequestHandler {
 		return false, nil
 	}
 
-	// Exponential backoff: 1s, 2s, 4s
+	// Exponential backoff with configurable multiplier
 	client.Backoff = func(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration {
 		if attemptNum == 0 {
 			return 0
 		}
-		backoff := time.Duration(math.Pow(2, float64(attemptNum-1))) * time.Second
+		backoff := time.Duration(math.Pow(config.RetryBackoff, float64(attemptNum-1))) * time.Second
 		if backoff > max {
 			return max
 		}
@@ -80,7 +81,8 @@ func NewRequestHandler(accountSID, authToken, baseURL string) *RequestHandler {
 	return &RequestHandler{
 		accountSID: accountSID,
 		authToken:  authToken,
-		baseURL:    baseURL,
+		baseURL:    config.BaseURL,
+		config:     config,
 		client:     client,
 	}
 }

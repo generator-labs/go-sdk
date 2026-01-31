@@ -3,6 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/generator-labs/go-sdk.svg)](https://pkg.go.dev/github.com/generator-labs/go-sdk)
 [![Go Report Card](https://goreportcard.com/badge/github.com/generator-labs/go-sdk)](https://goreportcard.com/report/github.com/generator-labs/go-sdk)
 [![Tests](https://github.com/generator-labs/go-sdk/workflows/Tests/badge.svg)](https://github.com/generator-labs/go-sdk/actions)
+[![CodeQL](https://github.com/generator-labs/go-sdk/workflows/CodeQL/badge.svg)](https://github.com/generator-labs/go-sdk/actions?query=workflow%3ACodeQL)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Official Go SDK for the [Generator Labs API](https://generatorlabs.com). This library provides a simple and intuitive interface for interacting with the Generator Labs v4.0 API, including RBL monitoring, contact management, and more.
@@ -10,10 +11,13 @@ Official Go SDK for the [Generator Labs API](https://generatorlabs.com). This li
 ## Features
 
 - Full support for Generator Labs API v4.0
+- Configurable timeouts, retries, and backoff strategies
 - Automatic retry logic with exponential backoff
+- Automatic pagination for large result sets
 - Connection pooling and timeout management
 - Type-safe API methods
 - Comprehensive error handling
+- Security scanning with CodeQL and Dependabot
 - Go 1.21+ support
 
 ## Installation
@@ -30,15 +34,33 @@ package main
 import (
     "fmt"
     "log"
+    "time"
 
     generatorlabs "github.com/generator-labs/go-sdk"
 )
 
 func main() {
-    // Initialize the client
+    // Initialize the client with default config
     client, err := generatorlabs.New(
         "YOUR_ACCOUNT_SID",
         "YOUR_AUTH_TOKEN",
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Or with custom configuration
+    config := &generatorlabs.Config{
+        Timeout:        45 * time.Second,
+        ConnectTimeout: 10 * time.Second,
+        MaxRetries:     5,
+        RetryBackoff:   2.0,
+        BaseURL:        "https://api.generatorlabs.com/4.0/",
+    }
+    client, err = generatorlabs.New(
+        "YOUR_ACCOUNT_SID",
+        "YOUR_AUTH_TOKEN",
+        config,
     )
     if err != nil {
         log.Fatal(err)
@@ -58,12 +80,12 @@ func main() {
     }
     fmt.Printf("Check result: %+v\n", result)
 
-    // Get all contacts
-    contacts, err := client.Contact().Contacts().Get()
+    // Get all contacts with automatic pagination
+    allContacts, err := client.Contact().Contacts().GetAll(nil)
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Printf("Contacts: %+v\n", contacts)
+    fmt.Printf("Total contacts: %d\n", len(allContacts))
 }
 ```
 
@@ -72,7 +94,46 @@ func main() {
 ### Client Initialization
 
 ```go
+// With default configuration
 client, err := generatorlabs.New(accountSID, authToken)
+
+// With custom configuration
+config := &generatorlabs.Config{
+    Timeout:        45 * time.Second,  // Request timeout (default: 30s)
+    ConnectTimeout: 10 * time.Second,  // Connection timeout (default: 5s)
+    MaxRetries:     5,                 // Max retry attempts (default: 3)
+    RetryBackoff:   2.0,              // Backoff multiplier (default: 1.0)
+    BaseURL:        "https://api.generatorlabs.com/4.0/",
+}
+client, err := generatorlabs.New(accountSID, authToken, config)
+```
+
+### Configuration Options
+
+- **Timeout**: Maximum duration for the entire request (default: 30 seconds)
+- **ConnectTimeout**: Maximum duration for connection establishment (default: 5 seconds)
+- **MaxRetries**: Maximum number of retry attempts for failed requests (default: 3)
+- **RetryBackoff**: Multiplier for exponential backoff between retries (default: 1.0)
+- **BaseURL**: Custom API base URL (default: https://api.generatorlabs.com/4.0/)
+
+### Pagination
+
+All list operations support automatic pagination using the `GetAll()` method:
+
+```go
+// Get all hosts across multiple pages
+allHosts, err := client.RBL().Hosts().GetAll(map[string]interface{}{
+    "page_size": 50,  // Items per page
+})
+
+// Get all profiles with automatic pagination
+allProfiles, err := client.RBL().Profiles().GetAll(nil)
+
+// Get all contacts with automatic pagination
+allContacts, err := client.Contact().Contacts().GetAll(nil)
+
+// Get all groups with automatic pagination
+allGroups, err := client.Contact().Groups().GetAll(nil)
 ```
 
 ### RBL Monitoring
@@ -194,10 +255,38 @@ if err != nil {
 ## Retry Logic
 
 The SDK automatically retries failed requests with exponential backoff:
-- Maximum 3 retry attempts
+- Configurable maximum retry attempts (default: 3)
 - Retries on connection errors, 5xx server errors, and 429 rate limits
-- Exponential backoff delays: 1s, 2s, 4s
-- 30 second request timeout
+- Configurable exponential backoff multiplier (default: 1.0 for 1s, 2s, 4s delays)
+- Configurable request timeout (default: 30 seconds)
+
+Customize retry behavior via the `Config` struct:
+
+```go
+config := &generatorlabs.Config{
+    MaxRetries:   5,    // More retry attempts
+    RetryBackoff: 2.0,  // Faster exponential growth
+    Timeout:      60 * time.Second,  // Longer timeout
+}
+client, err := generatorlabs.New(accountSID, authToken, config)
+```
+
+## Examples
+
+The `examples/` directory contains complete, runnable examples demonstrating:
+
+- **check_ip.go**: Check if an IP is listed on any RBLs
+- **manage_hosts.go**: Create, list, update, and delete monitored hosts
+- **pagination.go**: Handle large result sets with automatic pagination
+- **error_handling.go**: Proper error handling and custom configuration
+
+Run examples:
+
+```bash
+export GENERATOR_LABS_ACCOUNT_SID="your_account_sid"
+export GENERATOR_LABS_AUTH_TOKEN="your_auth_token"
+go run examples/check_ip.go
+```
 
 ## Requirements
 
@@ -209,6 +298,10 @@ The SDK automatically retries failed requests with exponential backoff:
 ```bash
 go test -v
 ```
+
+## Security
+
+For security best practices and vulnerability reporting, see [SECURITY.md](SECURITY.md).
 
 ## License
 

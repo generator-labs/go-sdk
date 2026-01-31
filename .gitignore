@@ -8,6 +8,12 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Example binaries
+check_ip
+manage_hosts
+pagination
+error_handling
+
 # Output of the go coverage tool
 *.out
 coverage.txt

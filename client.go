@@ -19,13 +19,14 @@ const VERSION = "2.0.0"
 type Client struct {
 	AccountSID string
 	AuthToken  string
+	Config     *Config
 	handler    *RequestHandler
 	rbl        *RBL
 	contact    *Contact
 }
 
 // New creates a new Generator Labs API client
-func New(accountSID, authToken string) (*Client, error) {
+func New(accountSID, authToken string, config ...*Config) (*Client, error) {
 	// Validate account SID format
 	sidPattern := regexp.MustCompile(`^[A-Z]{2}[0-9a-fA-F]{32}$`)
 	if !sidPattern.MatchString(accountSID) {
@@ -38,13 +39,22 @@ func New(accountSID, authToken string) (*Client, error) {
 		return nil, fmt.Errorf("invalid auth token format")
 	}
 
+	// Use provided config or default
+	var cfg *Config
+	if len(config) > 0 && config[0] != nil {
+		cfg = config[0]
+	} else {
+		cfg = DefaultConfig()
+	}
+
 	client := &Client{
 		AccountSID: accountSID,
 		AuthToken:  authToken,
+		Config:     cfg,
 	}
 
-	// Initialize request handler
-	client.handler = NewRequestHandler(accountSID, authToken, "https://api.generatorlabs.com/4.0/")
+	// Initialize request handler with config
+	client.handler = NewRequestHandler(accountSID, authToken, cfg)
 
 	return client, nil
 }

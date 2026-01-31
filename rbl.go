@@ -51,6 +51,10 @@ func (h *RBLHosts) Get(ids ...interface{}) (map[string]interface{}, error) {
 		return h.handler.Get("rbl/hosts", nil)
 	}
 	if len(ids) == 1 {
+		// Check if it's a map[string]interface{} (parameters)
+		if params, ok := ids[0].(map[string]interface{}); ok {
+			return h.handler.Get("rbl/hosts", params)
+		}
 		return h.handler.Get(fmt.Sprintf("rbl/hosts/%v", ids[0]), nil)
 	}
 	// Multiple IDs - convert to comma-separated string
@@ -60,6 +64,46 @@ func (h *RBLHosts) Get(ids ...interface{}) (map[string]interface{}, error) {
 	}
 	params := map[string]interface{}{"ids": idStr}
 	return h.handler.Get("rbl/hosts", params)
+}
+
+// GetAll retrieves all hosts with automatic pagination
+func (h *RBLHosts) GetAll(params map[string]interface{}) ([]interface{}, error) {
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+
+	allItems := []interface{}{}
+	page := 1
+
+	for {
+		params["page"] = page
+		response, err := h.Get(params)
+		if err != nil {
+			return nil, err
+		}
+
+		// Extract hosts from response
+		hosts := []interface{}{}
+		if hostList, ok := response["hosts"].([]interface{}); ok {
+			hosts = hostList
+		}
+
+		allItems = append(allItems, hosts...)
+
+		// Check if there are more pages
+		hasMore := false
+		if hm, ok := response["has_more"].(bool); ok {
+			hasMore = hm
+		}
+
+		if !hasMore || len(hosts) == 0 {
+			break
+		}
+
+		page++
+	}
+
+	return allItems, nil
 }
 
 // Create creates a new monitored host
@@ -88,6 +132,10 @@ func (p *RBLProfiles) Get(ids ...interface{}) (map[string]interface{}, error) {
 		return p.handler.Get("rbl/profiles", nil)
 	}
 	if len(ids) == 1 {
+		// Check if it's a map[string]interface{} (parameters)
+		if params, ok := ids[0].(map[string]interface{}); ok {
+			return p.handler.Get("rbl/profiles", params)
+		}
 		return p.handler.Get(fmt.Sprintf("rbl/profiles/%v", ids[0]), nil)
 	}
 	// Multiple IDs
@@ -97,6 +145,46 @@ func (p *RBLProfiles) Get(ids ...interface{}) (map[string]interface{}, error) {
 	}
 	params := map[string]interface{}{"ids": idStr}
 	return p.handler.Get("rbl/profiles", params)
+}
+
+// GetAll retrieves all profiles with automatic pagination
+func (p *RBLProfiles) GetAll(params map[string]interface{}) ([]interface{}, error) {
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+
+	allItems := []interface{}{}
+	page := 1
+
+	for {
+		params["page"] = page
+		response, err := p.Get(params)
+		if err != nil {
+			return nil, err
+		}
+
+		// Extract profiles from response
+		profiles := []interface{}{}
+		if profileList, ok := response["profiles"].([]interface{}); ok {
+			profiles = profileList
+		}
+
+		allItems = append(allItems, profiles...)
+
+		// Check if there are more pages
+		hasMore := false
+		if hm, ok := response["has_more"].(bool); ok {
+			hasMore = hm
+		}
+
+		if !hasMore || len(profiles) == 0 {
+			break
+		}
+
+		page++
+	}
+
+	return allItems, nil
 }
 
 // Create creates a new monitoring profile
@@ -125,6 +213,10 @@ func (s *RBLSources) Get(ids ...interface{}) (map[string]interface{}, error) {
 		return s.handler.Get("rbl/sources", nil)
 	}
 	if len(ids) == 1 {
+		// Check if it's a map[string]interface{} (parameters)
+		if params, ok := ids[0].(map[string]interface{}); ok {
+			return s.handler.Get("rbl/sources", params)
+		}
 		return s.handler.Get(fmt.Sprintf("rbl/sources/%v", ids[0]), nil)
 	}
 	// Multiple IDs
@@ -134,6 +226,46 @@ func (s *RBLSources) Get(ids ...interface{}) (map[string]interface{}, error) {
 	}
 	params := map[string]interface{}{"ids": idStr}
 	return s.handler.Get("rbl/sources", params)
+}
+
+// GetAll retrieves all sources with automatic pagination
+func (s *RBLSources) GetAll(params map[string]interface{}) ([]interface{}, error) {
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+
+	allItems := []interface{}{}
+	page := 1
+
+	for {
+		params["page"] = page
+		response, err := s.Get(params)
+		if err != nil {
+			return nil, err
+		}
+
+		// Extract sources from response
+		sources := []interface{}{}
+		if sourceList, ok := response["sources"].([]interface{}); ok {
+			sources = sourceList
+		}
+
+		allItems = append(allItems, sources...)
+
+		// Check if there are more pages
+		hasMore := false
+		if hm, ok := response["has_more"].(bool); ok {
+			hasMore = hm
+		}
+
+		if !hasMore || len(sources) == 0 {
+			break
+		}
+
+		page++
+	}
+
+	return allItems, nil
 }
 
 // Create creates a new RBL source
