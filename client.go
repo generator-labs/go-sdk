@@ -23,6 +23,7 @@ type Client struct {
 	handler    *RequestHandler
 	rbl        *RBL
 	contact    *Contact
+	cert       *Cert
 }
 
 // New creates a new Generator Labs API client
@@ -73,4 +74,12 @@ func (c *Client) Contact() *Contact {
 		c.contact = &Contact{handler: c.handler}
 	}
 	return c.contact
+}
+
+// Cert returns the Certificate monitoring API namespace
+func (c *Client) Cert() *Cert {
+	if c.cert == nil {
+		c.cert = &Cert{handler: c.handler}
+	}
+	return c.cert
 }
