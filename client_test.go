@@ -71,6 +71,34 @@ func TestClientNamespaces(t *testing.T) {
 			t.Error("Contact() returned nil")
 		}
 	})
+
+	t.Run("Cert", func(t *testing.T) {
+		cert := client.Cert()
+		if cert == nil {
+			t.Error("Cert() returned nil")
+		}
+	})
+
+	t.Run("Cert Errors", func(t *testing.T) {
+		errors := client.Cert().Errors()
+		if errors == nil {
+			t.Error("Cert().Errors() returned nil")
+		}
+	})
+
+	t.Run("Cert Monitors", func(t *testing.T) {
+		monitors := client.Cert().Monitors()
+		if monitors == nil {
+			t.Error("Cert().Monitors() returned nil")
+		}
+	})
+
+	t.Run("Cert Profiles", func(t *testing.T) {
+		profiles := client.Cert().Profiles()
+		if profiles == nil {
+			t.Error("Cert().Profiles() returned nil")
+		}
+	})
 }
 
 func TestVersion(t *testing.T) {

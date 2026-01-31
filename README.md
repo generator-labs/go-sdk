@@ -199,6 +199,121 @@ result, err := client.RBL().Check("8.8.8.8")
 listings, err := client.RBL().Listings()
 ```
 
+### Certificate Monitoring
+
+Certificate monitoring allows you to monitor SSL/TLS certificates for expiration, validity, and configuration issues across HTTPS, SMTPS, IMAPS, and other TLS-enabled services.
+
+#### Errors
+
+```go
+// Get all certificate errors
+errors, err := client.Cert().Errors().Get()
+if err != nil {
+    log.Fatal(err)
+}
+
+// Get a specific error
+error, err := client.Cert().Errors().Get("CE1234567890abcdef")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+#### Monitors
+
+```go
+// Get all certificate monitors
+monitors, err := client.Cert().Monitors().Get()
+if err != nil {
+    log.Fatal(err)
+}
+
+// Get a specific monitor
+monitor, err := client.Cert().Monitors().Get("CM1234567890abcdef")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Create a certificate monitor
+params := map[string]interface{}{
+    "name": "Production Web Server",
+    "hostname": "example.com",
+    "port": 443,
+    "protocol": "https",
+    "cert_profile": "CP1234567890abcdef",
+    "contact_group": "CG1234567890abcdef",
+}
+monitor, err := client.Cert().Monitors().Create(params)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Update a monitor
+params := map[string]interface{}{"name": "Updated Server Name"}
+monitor, err := client.Cert().Monitors().Update("CM1234567890abcdef", params)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Delete a monitor
+result, err := client.Cert().Monitors().Delete("CM1234567890abcdef")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Pause monitoring
+result, err := client.Cert().Monitors().Pause("CM1234567890abcdef")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Resume monitoring
+result, err := client.Cert().Monitors().Resume("CM1234567890abcdef")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+#### Profiles
+
+```go
+// Get all certificate profiles
+profiles, err := client.Cert().Profiles().Get()
+if err != nil {
+    log.Fatal(err)
+}
+
+// Get a specific profile
+profile, err := client.Cert().Profiles().Get("CP1234567890abcdef")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Create a profile
+params := map[string]interface{}{
+    "name": "Standard Certificate Profile",
+    "expiration_warning_days": 30,
+    "expiration_critical_days": 7,
+}
+profile, err := client.Cert().Profiles().Create(params)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Update a profile
+params := map[string]interface{}{"expiration_warning_days": 45}
+profile, err := client.Cert().Profiles().Update("CP1234567890abcdef", params)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Delete a profile
+result, err := client.Cert().Profiles().Delete("CP1234567890abcdef")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
 ### Contact Management
 
 #### Contacts
