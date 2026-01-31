@@ -21,7 +21,12 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-// RequestHandler handles HTTP requests to the Generator Labs API
+// RequestHandler handles HTTP requests to the Generator Labs API.
+//
+// This type manages HTTP client configuration, authentication, retry logic,
+// and error handling for all API requests. It automatically retries failed
+// requests using exponential backoff on connection errors, 5xx server errors,
+// and 429 rate limit errors.
 type RequestHandler struct {
 	accountSID string
 	authToken  string
@@ -30,7 +35,10 @@ type RequestHandler struct {
 	client     *retryablehttp.Client
 }
 
-// APIError represents an error response from the API
+// APIError represents an error response from the API.
+//
+// The API returns structured error responses with success=false and
+// an error object containing the error message and details.
 type APIError struct {
 	Success bool `json:"success"`
 	Error   struct {
@@ -39,7 +47,15 @@ type APIError struct {
 	Message string `json:"message"`
 }
 
-// NewRequestHandler creates a new request handler
+// NewRequestHandler creates a new request handler with retry logic.
+//
+// This initializes an HTTP client with:
+//   - Automatic retries on connection errors, 5xx errors, and 429 rate limits
+//   - Exponential backoff based on config.RetryBackoff
+//   - Configurable timeouts from config.Timeout and config.ConnectTimeout
+//   - HTTP Basic Authentication using accountSID and authToken
+//
+// The handler is used internally by all API resource types.
 func NewRequestHandler(accountSID, authToken string, config *Config) *RequestHandler {
 	// Create retryable HTTP client
 	client := retryablehttp.NewClient()
@@ -87,7 +103,23 @@ func NewRequestHandler(accountSID, authToken string, config *Config) *RequestHan
 	}
 }
 
-// makeRequest performs an HTTP request to the API
+// makeRequest performs an HTTP request to the API with automatic retries.
+//
+// This method handles:
+//   - Building the request URL with .json extension
+//   - Adding query parameters for GET requests
+//   - Adding form data for POST/PUT/DELETE requests
+//   - Setting authentication headers
+//   - Executing the request with retry logic
+//   - Parsing JSON responses
+//   - Checking for API errors in the response
+//
+// Errors are returned if:
+//   - The request cannot be created
+//   - All retry attempts fail
+//   - The response body cannot be read or parsed
+//   - The API returns success=false in the response
+//   - The HTTP status code is >= 400
 func (h *RequestHandler) makeRequest(method, path string, params map[string]interface{}) (map[string]interface{}, error) {
 	apiURL := fmt.Sprintf("%s%s.json", h.baseURL, path)
 
@@ -180,22 +212,50 @@ func (h *RequestHandler) makeRequest(method, path string, params map[string]inte
 	return data, nil
 }
 
-// Get performs a GET request
+// Get performs a GET request to the API.
+//
+// Parameters are sent as query string parameters. The request includes
+// automatic retry logic for failures.
+//
+// Example:
+//
+//	response, err := handler.Get("rbl/hosts", map[string]interface{}{"status": "active"})
 func (h *RequestHandler) Get(path string, params map[string]interface{}) (map[string]interface{}, error) {
 	return h.makeRequest("GET", path, params)
 }
 
-// Post performs a POST request
+// Post performs a POST request to the API.
+//
+// Parameters are sent as application/x-www-form-urlencoded data.
+// The request includes automatic retry logic for failures.
+//
+// Example:
+//
+//	response, err := handler.Post("rbl/hosts", map[string]interface{}{"name": "My Host", "host": "1.2.3.4"})
 func (h *RequestHandler) Post(path string, params map[string]interface{}) (map[string]interface{}, error) {
 	return h.makeRequest("POST", path, params)
 }
 
-// Put performs a PUT request
+// Put performs a PUT request to the API.
+//
+// Parameters are sent as application/x-www-form-urlencoded data.
+// The request includes automatic retry logic for failures.
+//
+// Example:
+//
+//	response, err := handler.Put("rbl/hosts/HTxxxxxxxx", map[string]interface{}{"name": "Updated Name"})
 func (h *RequestHandler) Put(path string, params map[string]interface{}) (map[string]interface{}, error) {
 	return h.makeRequest("PUT", path, params)
 }
 
-// Delete performs a DELETE request
+// Delete performs a DELETE request to the API.
+//
+// No parameters are sent with DELETE requests. The request includes
+// automatic retry logic for failures.
+//
+// Example:
+//
+//	response, err := handler.Delete("rbl/hosts/HTxxxxxxxx")
 func (h *RequestHandler) Delete(path string) (map[string]interface{}, error) {
 	return h.makeRequest("DELETE", path, nil)
 }
