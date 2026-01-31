@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestNewClient(t *testing.T) {
+func TestNew(t *testing.T) {
 	tests := []struct {
 		name       string
 		accountSID string
@@ -40,35 +40,35 @@ func TestNewClient(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := NewClient(tt.accountSID, tt.authToken)
+			client, err := New(tt.accountSID, tt.authToken)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewClient() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr && client == nil {
-				t.Error("NewClient() returned nil client")
+				t.Error("New() returned nil client")
 			}
 		})
 	}
 }
 
 func TestClientNamespaces(t *testing.T) {
-	client, err := NewClient("AC0123456789abcdef0123456789abcdef", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	client, err := New("AC0123456789abcdef0123456789abcdef", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	t.Run("RBLClient", func(t *testing.T) {
-		rbl := client.RBLClient()
+	t.Run("RBL", func(t *testing.T) {
+		rbl := client.RBL()
 		if rbl == nil {
-			t.Error("RBLClient() returned nil")
+			t.Error("RBL() returned nil")
 		}
 	})
 
-	t.Run("ContactClient", func(t *testing.T) {
-		contact := client.ContactClient()
+	t.Run("Contact", func(t *testing.T) {
+		contact := client.Contact()
 		if contact == nil {
-			t.Error("ContactClient() returned nil")
+			t.Error("Contact() returned nil")
 		}
 	})
 }

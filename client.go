@@ -24,8 +24,8 @@ type Client struct {
 	contact    *Contact
 }
 
-// NewClient creates a new Generator Labs API client
-func NewClient(accountSID, authToken string) (*Client, error) {
+// New creates a new Generator Labs API client
+func New(accountSID, authToken string) (*Client, error) {
 	// Validate account SID format
 	sidPattern := regexp.MustCompile(`^[A-Z]{2}[0-9a-fA-F]{32}$`)
 	if !sidPattern.MatchString(accountSID) {
@@ -49,16 +49,16 @@ func NewClient(accountSID, authToken string) (*Client, error) {
 	return client, nil
 }
 
-// RBLClient returns the RBL monitoring API namespace
-func (c *Client) RBLClient() *RBL {
+// RBL returns the RBL monitoring API namespace
+func (c *Client) RBL() *RBL {
 	if c.rbl == nil {
 		c.rbl = &RBL{handler: c.handler}
 	}
 	return c.rbl
 }
 
-// ContactClient returns the Contact management API namespace
-func (c *Client) ContactClient() *Contact {
+// Contact returns the Contact management API namespace
+func (c *Client) Contact() *Contact {
 	if c.contact == nil {
 		c.contact = &Contact{handler: c.handler}
 	}

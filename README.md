@@ -36,7 +36,7 @@ import (
 
 func main() {
     // Initialize the client
-    client, err := generatorlabs.NewClient(
+    client, err := generatorlabs.New(
         "YOUR_ACCOUNT_SID",
         "YOUR_AUTH_TOKEN",
     )
@@ -45,21 +45,21 @@ func main() {
     }
 
     // Get all monitored hosts
-    hosts, err := client.RBLClient().Hosts().Get()
+    hosts, err := client.RBL().Hosts().Get()
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Hosts: %+v\n", hosts)
 
     // Check an IP address
-    result, err := client.RBLClient().Check("8.8.8.8")
+    result, err := client.RBL().Check("8.8.8.8")
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Check result: %+v\n", result)
 
     // Get all contacts
-    contacts, err := client.ContactClient().Contacts().Get()
+    contacts, err := client.Contact().Contacts().Get()
     if err != nil {
         log.Fatal(err)
     }
@@ -72,7 +72,7 @@ func main() {
 ### Client Initialization
 
 ```go
-client, err := generatorlabs.NewClient(accountSID, authToken)
+client, err := generatorlabs.New(accountSID, authToken)
 ```
 
 ### RBL Monitoring
@@ -81,37 +81,37 @@ client, err := generatorlabs.NewClient(accountSID, authToken)
 
 ```go
 // Get all hosts
-hosts, err := client.RBLClient().Hosts().Get()
+hosts, err := client.RBL().Hosts().Get()
 
 // Get a specific host
-host, err := client.RBLClient().Hosts().Get(123)
+host, err := client.RBL().Hosts().Get(123)
 
 // Get multiple hosts
-hosts, err := client.RBLClient().Hosts().Get(123, 456, 789)
+hosts, err := client.RBL().Hosts().Get(123, 456, 789)
 
 // Create a host
 params := map[string]interface{}{
     "ip": "8.8.8.8",
     "description": "Google DNS",
 }
-host, err := client.RBLClient().Hosts().Create(params)
+host, err := client.RBL().Hosts().Create(params)
 
 // Update a host
 params := map[string]interface{}{"description": "Updated description"}
-host, err := client.RBLClient().Hosts().Update(123, params)
+host, err := client.RBL().Hosts().Update(123, params)
 
 // Delete a host
-result, err := client.RBLClient().Hosts().Delete(123)
+result, err := client.RBL().Hosts().Delete(123)
 ```
 
 #### Profiles
 
 ```go
 // Get all profiles
-profiles, err := client.RBLClient().Profiles().Get()
+profiles, err := client.RBL().Profiles().Get()
 
 // Get a specific profile
-profile, err := client.RBLClient().Profiles().Get(1)
+profile, err := client.RBL().Profiles().Get(1)
 
 // Create/Update/Delete - similar to Hosts
 ```
@@ -120,10 +120,10 @@ profile, err := client.RBLClient().Profiles().Get(1)
 
 ```go
 // Get all RBL sources
-sources, err := client.RBLClient().Sources().Get()
+sources, err := client.RBL().Sources().Get()
 
 // Get a specific source
-source, err := client.RBLClient().Sources().Get(10)
+source, err := client.RBL().Sources().Get(10)
 
 // Create/Update/Delete - similar to Hosts
 ```
@@ -132,10 +132,10 @@ source, err := client.RBLClient().Sources().Get(10)
 
 ```go
 // Check an IP address
-result, err := client.RBLClient().Check("8.8.8.8")
+result, err := client.RBL().Check("8.8.8.8")
 
 // Get current listings
-listings, err := client.RBLClient().Listings()
+listings, err := client.RBL().Listings()
 ```
 
 ### Contact Management
@@ -144,37 +144,37 @@ listings, err := client.RBLClient().Listings()
 
 ```go
 // Get all contacts
-contacts, err := client.ContactClient().Contacts().Get()
+contacts, err := client.Contact().Contacts().Get()
 
 // Get a specific contact
-contact, err := client.ContactClient().Contacts().Get(456)
+contact, err := client.Contact().Contacts().Get(456)
 
 // Get multiple contacts
-contacts, err := client.ContactClient().Contacts().Get(456, 789)
+contacts, err := client.Contact().Contacts().Get(456, 789)
 
 // Create a contact
 params := map[string]interface{}{
     "email": "user@example.com",
     "name": "John Doe",
 }
-contact, err := client.ContactClient().Contacts().Create(params)
+contact, err := client.Contact().Contacts().Create(params)
 
 // Update a contact
 params := map[string]interface{}{"name": "Jane Doe"}
-contact, err := client.ContactClient().Contacts().Update(456, params)
+contact, err := client.Contact().Contacts().Update(456, params)
 
 // Delete a contact
-result, err := client.ContactClient().Contacts().Delete(456)
+result, err := client.Contact().Contacts().Delete(456)
 ```
 
 #### Groups
 
 ```go
 // Get all groups
-groups, err := client.ContactClient().Groups().Get()
+groups, err := client.Contact().Groups().Get()
 
 // Get a specific group
-group, err := client.ContactClient().Groups().Get(10)
+group, err := client.Contact().Groups().Get(10)
 
 // Create/Update/Delete - similar to Contacts
 ```
@@ -184,7 +184,7 @@ group, err := client.ContactClient().Groups().Get(10)
 All methods return an error as the second return value. Always check for errors:
 
 ```go
-result, err := client.RBLClient().Check("8.8.8.8")
+result, err := client.RBL().Check("8.8.8.8")
 if err != nil {
     log.Printf("API error: %v", err)
     return
