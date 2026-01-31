@@ -35,6 +35,10 @@ func (c *Contacts) Get(ids ...interface{}) (map[string]interface{}, error) {
 		return c.handler.Get("contact/contacts", nil)
 	}
 	if len(ids) == 1 {
+		// Check if it's a map[string]interface{} (parameters)
+		if params, ok := ids[0].(map[string]interface{}); ok {
+			return c.handler.Get("contact/contacts", params)
+		}
 		return c.handler.Get(fmt.Sprintf("contact/contacts/%v", ids[0]), nil)
 	}
 	// Multiple IDs
@@ -44,6 +48,46 @@ func (c *Contacts) Get(ids ...interface{}) (map[string]interface{}, error) {
 	}
 	params := map[string]interface{}{"ids": idStr}
 	return c.handler.Get("contact/contacts", params)
+}
+
+// GetAll retrieves all contacts with automatic pagination
+func (c *Contacts) GetAll(params map[string]interface{}) ([]interface{}, error) {
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+
+	allItems := []interface{}{}
+	page := 1
+
+	for {
+		params["page"] = page
+		response, err := c.Get(params)
+		if err != nil {
+			return nil, err
+		}
+
+		// Extract contacts from response
+		contacts := []interface{}{}
+		if contactList, ok := response["contacts"].([]interface{}); ok {
+			contacts = contactList
+		}
+
+		allItems = append(allItems, contacts...)
+
+		// Check if there are more pages
+		hasMore := false
+		if hm, ok := response["has_more"].(bool); ok {
+			hasMore = hm
+		}
+
+		if !hasMore || len(contacts) == 0 {
+			break
+		}
+
+		page++
+	}
+
+	return allItems, nil
 }
 
 // Create creates a new contact
@@ -72,6 +116,10 @@ func (g *Groups) Get(ids ...interface{}) (map[string]interface{}, error) {
 		return g.handler.Get("contact/groups", nil)
 	}
 	if len(ids) == 1 {
+		// Check if it's a map[string]interface{} (parameters)
+		if params, ok := ids[0].(map[string]interface{}); ok {
+			return g.handler.Get("contact/groups", params)
+		}
 		return g.handler.Get(fmt.Sprintf("contact/groups/%v", ids[0]), nil)
 	}
 	// Multiple IDs
@@ -81,6 +129,46 @@ func (g *Groups) Get(ids ...interface{}) (map[string]interface{}, error) {
 	}
 	params := map[string]interface{}{"ids": idStr}
 	return g.handler.Get("contact/groups", params)
+}
+
+// GetAll retrieves all groups with automatic pagination
+func (g *Groups) GetAll(params map[string]interface{}) ([]interface{}, error) {
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+
+	allItems := []interface{}{}
+	page := 1
+
+	for {
+		params["page"] = page
+		response, err := g.Get(params)
+		if err != nil {
+			return nil, err
+		}
+
+		// Extract groups from response
+		groups := []interface{}{}
+		if groupList, ok := response["groups"].([]interface{}); ok {
+			groups = groupList
+		}
+
+		allItems = append(allItems, groups...)
+
+		// Check if there are more pages
+		hasMore := false
+		if hm, ok := response["has_more"].(bool); ok {
+			hasMore = hm
+		}
+
+		if !hasMore || len(groups) == 0 {
+			break
+		}
+
+		page++
+	}
+
+	return allItems, nil
 }
 
 // Create creates a new contact group
