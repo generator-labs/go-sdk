@@ -213,7 +213,7 @@ if err != nil {
 }
 
 // Get a specific error
-error, err := client.Cert().Errors().Get("CE1234567890abcdef")
+error, err := client.Cert().Errors().Get("CE5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a")
 if err != nil {
     log.Fatal(err)
 }
@@ -229,7 +229,7 @@ if err != nil {
 }
 
 // Get a specific monitor
-monitor, err := client.Cert().Monitors().Get("CM1234567890abcdef")
+monitor, err := client.Cert().Monitors().Get("CM62944aeeee2b46d7a28221164f38976a")
 if err != nil {
     log.Fatal(err)
 }
@@ -240,8 +240,8 @@ params := map[string]interface{}{
     "hostname": "example.com",
     "port": 443,
     "protocol": "https",
-    "cert_profile": "CP1234567890abcdef",
-    "contact_group": "CG1234567890abcdef",
+    "cert_profile": "CP79b597e61a984a35b5eb7dcdbc3de53c",
+    "contact_group": "CG4f3e2d1c0b9a8776655443322110fed",
 }
 monitor, err := client.Cert().Monitors().Create(params)
 if err != nil {
@@ -250,25 +250,25 @@ if err != nil {
 
 // Update a monitor
 params := map[string]interface{}{"name": "Updated Server Name"}
-monitor, err := client.Cert().Monitors().Update("CM1234567890abcdef", params)
+monitor, err := client.Cert().Monitors().Update("CM62944aeeee2b46d7a28221164f38976a", params)
 if err != nil {
     log.Fatal(err)
 }
 
 // Delete a monitor
-result, err := client.Cert().Monitors().Delete("CM1234567890abcdef")
+result, err := client.Cert().Monitors().Delete("CM62944aeeee2b46d7a28221164f38976a")
 if err != nil {
     log.Fatal(err)
 }
 
 // Pause monitoring
-result, err := client.Cert().Monitors().Pause("CM1234567890abcdef")
+result, err := client.Cert().Monitors().Pause("CM62944aeeee2b46d7a28221164f38976a")
 if err != nil {
     log.Fatal(err)
 }
 
 // Resume monitoring
-result, err := client.Cert().Monitors().Resume("CM1234567890abcdef")
+result, err := client.Cert().Monitors().Resume("CM62944aeeee2b46d7a28221164f38976a")
 if err != nil {
     log.Fatal(err)
 }
@@ -284,7 +284,7 @@ if err != nil {
 }
 
 // Get a specific profile
-profile, err := client.Cert().Profiles().Get("CP1234567890abcdef")
+profile, err := client.Cert().Profiles().Get("CP79b597e61a984a35b5eb7dcdbc3de53c")
 if err != nil {
     log.Fatal(err)
 }
@@ -302,13 +302,13 @@ if err != nil {
 
 // Update a profile
 params := map[string]interface{}{"expiration_warning_days": 45}
-profile, err := client.Cert().Profiles().Update("CP1234567890abcdef", params)
+profile, err := client.Cert().Profiles().Update("CP79b597e61a984a35b5eb7dcdbc3de53c", params)
 if err != nil {
     log.Fatal(err)
 }
 
 // Delete a profile
-result, err := client.Cert().Profiles().Delete("CP1234567890abcdef")
+result, err := client.Cert().Profiles().Delete("CP79b597e61a984a35b5eb7dcdbc3de53c")
 if err != nil {
     log.Fatal(err)
 }

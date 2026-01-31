@@ -121,7 +121,7 @@ func main() {
 		"port":          443,
 		"protocol":      "https",
 		"cert_profile":  profileID,
-		"contact_group": "CG37106c6baa1ec90a2b3f5c8ec54afe9d", // Use your contact group ID
+		"contact_group": "CG4f3e2d1c0b9a8776655443322110fed", // Use your contact group ID
 	})
 	if err != nil {
 		log.Fatalf("API Error: %v", err)
@@ -141,7 +141,7 @@ func main() {
 		"port":          465,
 		"protocol":      "smtps",
 		"cert_profile":  profileID,
-		"contact_group": "CG37106c6baa1ec90a2b3f5c8ec54afe9d",
+		"contact_group": "CG4f3e2d1c0b9a8776655443322110fed",
 	})
 	if err != nil {
 		log.Fatalf("API Error: %v", err)
