@@ -13,15 +13,7 @@ linters:
     - ineffassign
 
 issues:
-  # Exclude examples directory from linting
-  exclude-dirs:
-    - examples
   # Maximum issues count per one linter
   max-issues-per-linter: 0
   # Maximum count of issues with the same text
   max-same-issues: 0
-
-output:
-  # Output formats (use colored-line-number instead of github-actions)
-  formats:
-    - format: colored-line-number
