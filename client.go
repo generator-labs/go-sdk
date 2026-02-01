@@ -55,7 +55,7 @@ type Client struct {
 	// AuthToken is the authentication token (64 hex characters)
 	AuthToken string
 	// Config contains timeout, retry, and base URL settings
-	Config *Config
+	Config  *Config
 	handler *RequestHandler
 	rbl     *RBL
 	contact *Contact

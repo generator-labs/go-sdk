@@ -61,11 +61,11 @@ func main() {
 	// Create a new profile
 	fmt.Println("\n=== Creating a new certificate profile ===")
 	newProfile, err := client.Cert().Profiles().Create(map[string]interface{}{
-		"name":                      "Example Certificate Profile",
-		"expiration_warning_days":   30,
-		"expiration_critical_days":  7,
-		"check_self_signed":         true,
-		"check_hostname_mismatch":   true,
+		"name":                     "Example Certificate Profile",
+		"expiration_warning_days":  30,
+		"expiration_critical_days": 7,
+		"check_self_signed":        true,
+		"check_hostname_mismatch":  true,
 	})
 	if err != nil {
 		log.Fatalf("API Error: %v", err)
