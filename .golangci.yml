@@ -1,7 +1,6 @@
 run:
-  # Exclude examples directory from linting
-  skip-dirs:
-    - examples
+  # Timeout for analysis
+  timeout: 5m
 
 linters:
   enable:
@@ -14,11 +13,15 @@ linters:
     - ineffassign
 
 issues:
+  # Exclude examples directory from linting
+  exclude-dirs:
+    - examples
   # Maximum issues count per one linter
   max-issues-per-linter: 0
   # Maximum count of issues with the same text
   max-same-issues: 0
 
 output:
-  # Use colored-line-number format instead of deprecated github-actions
-  format: colored-line-number
+  # Output formats (use colored-line-number instead of github-actions)
+  formats:
+    - format: colored-line-number
