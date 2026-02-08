@@ -89,6 +89,37 @@ func main() {
 }
 ```
 
+## Webhook Verification
+
+The SDK includes a helper for verifying incoming webhook signatures. Each webhook is assigned a signing secret (available in the Portal), which is used to compute an HMAC-SHA256 signature sent with every request in the `X-Webhook-Signature` header.
+
+```go
+import generatorlabs "github.com/generator-labs/go-sdk"
+
+header := r.Header.Get("X-Webhook-Signature")
+body, _ := io.ReadAll(r.Body)
+secret := os.Getenv("GENERATOR_LABS_WEBHOOK_SECRET")
+
+payload, err := generatorlabs.VerifyWebhook(string(body), header, secret, generatorlabs.DefaultWebhookTolerance)
+if err != nil {
+    // Signature verification failed
+    http.Error(w, `{"error":"Invalid signature"}`, http.StatusForbidden)
+    return
+}
+
+// payload is the decoded event data
+fmt.Println(payload["event"])
+```
+
+The default timestamp tolerance is 5 minutes. You can customize it (in seconds), or pass `0` to disable:
+
+```go
+payload, err := generatorlabs.VerifyWebhook(string(body), header, secret, 600)  // 10-minute tolerance
+payload, err := generatorlabs.VerifyWebhook(string(body), header, secret, 0)    // disable timestamp check
+```
+
+See `examples/webhook_verification/main.go` for a complete example.
+
 ## API Reference
 
 ### Client Initialization
