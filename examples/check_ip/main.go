@@ -28,7 +28,7 @@ func main() {
 	ip := "8.8.8.8"
 	fmt.Printf("Checking IP: %s\n", ip)
 
-	result, err := client.RBL().Check(ip)
+	result, err := client.RBL().Check().Start(map[string]interface{}{"host": ip})
 	if err != nil {
 		log.Fatalf("API Error: %v", err)
 	}

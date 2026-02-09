@@ -51,7 +51,7 @@ func main() {
 	// - 429 rate limit errors
 	// With exponential backoff
 
-	_, err = client.RBL().Check("1.1.1.1")
+	_, err = client.RBL().Check().Start(map[string]interface{}{"host": "1.1.1.1"})
 	if err != nil {
 		log.Fatalf("API Error: %v", err)
 	}
