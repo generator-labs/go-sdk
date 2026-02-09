@@ -42,7 +42,7 @@ func TestGetAllSinglePage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := paginatedResponse(makeHosts(3, 0), "hosts", 1, 1, 3)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -77,7 +77,7 @@ func TestGetAllMultiplePages(t *testing.T) {
 
 		resp := paginatedResponse(items, "hosts", page, 3, 5)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -104,7 +104,7 @@ func TestGetAllEmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := paginatedResponse([]interface{}{}, "hosts", 1, 1, 0)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -133,7 +133,7 @@ func TestGetAllCustomPageSize(t *testing.T) {
 		resp := paginatedResponse(makeHosts(1, 0), "hosts", 1, 1, 1)
 		resp["page_size"] = float64(50)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -162,7 +162,7 @@ func TestGetAllContactsResourceKey(t *testing.T) {
 			"contacts", 1, 1, 2,
 		)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
