@@ -129,12 +129,12 @@ func (e *CertErrors) GetAll(params map[string]interface{}) ([]interface{}, error
 		allItems = append(allItems, errors...)
 
 		// Check if there are more pages
-		hasMore := false
-		if hm, ok := response["has_more"].(bool); ok {
-			hasMore = hm
+		totalPages := 1.0
+		if tp, ok := response["total_pages"].(float64); ok {
+			totalPages = tp
 		}
 
-		if !hasMore || len(errors) == 0 {
+		if float64(page) >= totalPages || len(errors) == 0 {
 			break
 		}
 
@@ -235,12 +235,12 @@ func (m *CertMonitors) GetAll(params map[string]interface{}) ([]interface{}, err
 		allItems = append(allItems, monitors...)
 
 		// Check if there are more pages
-		hasMore := false
-		if hm, ok := response["has_more"].(bool); ok {
-			hasMore = hm
+		totalPages := 1.0
+		if tp, ok := response["total_pages"].(float64); ok {
+			totalPages = tp
 		}
 
-		if !hasMore || len(monitors) == 0 {
+		if float64(page) >= totalPages || len(monitors) == 0 {
 			break
 		}
 
@@ -410,12 +410,12 @@ func (p *CertProfiles) GetAll(params map[string]interface{}) ([]interface{}, err
 		allItems = append(allItems, profiles...)
 
 		// Check if there are more pages
-		hasMore := false
-		if hm, ok := response["has_more"].(bool); ok {
-			hasMore = hm
+		totalPages := 1.0
+		if tp, ok := response["total_pages"].(float64); ok {
+			totalPages = tp
 		}
 
-		if !hasMore || len(profiles) == 0 {
+		if float64(page) >= totalPages || len(profiles) == 0 {
 			break
 		}
 

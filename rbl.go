@@ -54,17 +54,16 @@ func (r *RBL) Sources() *RBLSources {
 	return &RBLSources{handler: r.handler}
 }
 
-// Check performs a real-time RBL check on an IP address.
+// Check returns operations for performing manual RBL checks.
 //
-// This performs an ad-hoc check without requiring the IP to be added
-// as a monitored host. Useful for one-time checks or testing.
+// Manual checks allow you to check an IP address or host against RBL sources
+// without requiring it to be added as a monitored host.
 //
 // Example:
 //
-//	result, err := client.RBL().Check("1.2.3.4")
-func (r *RBL) Check(ip string) (map[string]interface{}, error) {
-	params := map[string]interface{}{"ip": ip}
-	return r.handler.Get("rbl/check", params)
+//	result, err := client.RBL().Check().Start(map[string]interface{}{"host": "1.2.3.4"})
+func (r *RBL) Check() *RBLCheck {
+	return &RBLCheck{handler: r.handler}
 }
 
 // Listings retrieves current RBL listings for all monitored hosts.
@@ -76,6 +75,46 @@ func (r *RBL) Check(ip string) (map[string]interface{}, error) {
 //	listings, err := client.RBL().Listings()
 func (r *RBL) Listings() (map[string]interface{}, error) {
 	return r.handler.Get("rbl/listings", nil)
+}
+
+// RBLCheck handles manual RBL check operations.
+//
+// Provides methods to start a new check and retrieve check status/results.
+type RBLCheck struct {
+	handler *RequestHandler
+}
+
+// Start initiates a new manual RBL check.
+//
+// Required parameters:
+//   - host: IP address or hostname to check
+//
+// Optional parameters:
+//   - callback: URL to receive results via webhook
+//   - details: Set to true for detailed results
+//
+// Example:
+//
+//	result, err := client.RBL().Check().Start(map[string]interface{}{
+//	    "host": "1.2.3.4",
+//	    "details": true,
+//	})
+func (c *RBLCheck) Start(params map[string]interface{}) (map[string]interface{}, error) {
+	return c.handler.Post("rbl/check/start", params)
+}
+
+// Status retrieves the status of a manual RBL check.
+//
+// The id parameter should be the check ID returned from Start().
+//
+// Optional parameters:
+//   - details: Set to true for detailed results
+//
+// Example:
+//
+//	status, err := client.RBL().Check().Status("PP1234567890abcdef...", nil)
+func (c *RBLCheck) Status(id string, params map[string]interface{}) (map[string]interface{}, error) {
+	return c.handler.Get(fmt.Sprintf("rbl/check/status/%s", id), params)
 }
 
 // RBLHosts handles host management operations.
@@ -172,12 +211,12 @@ func (h *RBLHosts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 		allItems = append(allItems, hosts...)
 
 		// Check if there are more pages
-		hasMore := false
-		if hm, ok := response["has_more"].(bool); ok {
-			hasMore = hm
+		totalPages := 1.0
+		if tp, ok := response["total_pages"].(float64); ok {
+			totalPages = tp
 		}
 
-		if !hasMore || len(hosts) == 0 {
+		if float64(page) >= totalPages || len(hosts) == 0 {
 			break
 		}
 
@@ -238,6 +277,30 @@ func (h *RBLHosts) Update(id interface{}, params map[string]interface{}) (map[st
 //	_, err := client.RBL().Hosts().Delete("HT1a2b3c4d5e6f7890abcdef1234567890")
 func (h *RBLHosts) Delete(id interface{}) (map[string]interface{}, error) {
 	return h.handler.Delete(fmt.Sprintf("rbl/hosts/%v", id))
+}
+
+// Pause temporarily pauses monitoring for a host.
+//
+// The id parameter should be the host SID (e.g., "HT1a2b3c4d5e6f7890abcdef1234567890").
+// Pausing stops checks without deleting the host. Use Resume() to restart.
+//
+// Example:
+//
+//	_, err := client.RBL().Hosts().Pause("HT1a2b3c4d5e6f7890abcdef1234567890")
+func (h *RBLHosts) Pause(id interface{}) (map[string]interface{}, error) {
+	return h.handler.Post(fmt.Sprintf("rbl/hosts/%v/pause", id), nil)
+}
+
+// Resume resumes monitoring for a paused host.
+//
+// The id parameter should be the host SID (e.g., "HT1a2b3c4d5e6f7890abcdef1234567890").
+// This restarts checks on a previously paused host.
+//
+// Example:
+//
+//	_, err := client.RBL().Hosts().Resume("HT1a2b3c4d5e6f7890abcdef1234567890")
+func (h *RBLHosts) Resume(id interface{}) (map[string]interface{}, error) {
+	return h.handler.Post(fmt.Sprintf("rbl/hosts/%v/resume", id), nil)
 }
 
 // RBLProfiles handles monitoring profile operations.
@@ -318,12 +381,12 @@ func (p *RBLProfiles) GetAll(params map[string]interface{}) ([]interface{}, erro
 		allItems = append(allItems, profiles...)
 
 		// Check if there are more pages
-		hasMore := false
-		if hm, ok := response["has_more"].(bool); ok {
-			hasMore = hm
+		totalPages := 1.0
+		if tp, ok := response["total_pages"].(float64); ok {
+			totalPages = tp
 		}
 
-		if !hasMore || len(profiles) == 0 {
+		if float64(page) >= totalPages || len(profiles) == 0 {
 			break
 		}
 
@@ -460,12 +523,12 @@ func (s *RBLSources) GetAll(params map[string]interface{}) ([]interface{}, error
 		allItems = append(allItems, sources...)
 
 		// Check if there are more pages
-		hasMore := false
-		if hm, ok := response["has_more"].(bool); ok {
-			hasMore = hm
+		totalPages := 1.0
+		if tp, ok := response["total_pages"].(float64); ok {
+			totalPages = tp
 		}
 
-		if !hasMore || len(sources) == 0 {
+		if float64(page) >= totalPages || len(sources) == 0 {
 			break
 		}
 
@@ -526,4 +589,28 @@ func (s *RBLSources) Update(id interface{}, params map[string]interface{}) (map[
 //	_, err := client.RBL().Sources().Delete("RB1234567890abcdef1234567890abcdef")
 func (s *RBLSources) Delete(id interface{}) (map[string]interface{}, error) {
 	return s.handler.Delete(fmt.Sprintf("rbl/sources/%v", id))
+}
+
+// Pause temporarily pauses an RBL source.
+//
+// The id parameter should be the source SID (e.g., "RB1234567890abcdef1234567890abcdef").
+// Pausing stops checks against this source. Use Resume() to restart.
+//
+// Example:
+//
+//	_, err := client.RBL().Sources().Pause("RB1234567890abcdef1234567890abcdef")
+func (s *RBLSources) Pause(id interface{}) (map[string]interface{}, error) {
+	return s.handler.Post(fmt.Sprintf("rbl/sources/%v/pause", id), nil)
+}
+
+// Resume resumes a paused RBL source.
+//
+// The id parameter should be the source SID (e.g., "RB1234567890abcdef1234567890abcdef").
+// This restarts checks against a previously paused source.
+//
+// Example:
+//
+//	_, err := client.RBL().Sources().Resume("RB1234567890abcdef1234567890abcdef")
+func (s *RBLSources) Resume(id interface{}) (map[string]interface{}, error) {
+	return s.handler.Post(fmt.Sprintf("rbl/sources/%v/resume", id), nil)
 }

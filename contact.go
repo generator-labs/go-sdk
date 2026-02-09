@@ -119,12 +119,12 @@ func (c *Contacts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 		allItems = append(allItems, contacts...)
 
 		// Check if there are more pages
-		hasMore := false
-		if hm, ok := response["has_more"].(bool); ok {
-			hasMore = hm
+		totalPages := 1.0
+		if tp, ok := response["total_pages"].(float64); ok {
+			totalPages = tp
 		}
 
-		if !hasMore || len(contacts) == 0 {
+		if float64(page) >= totalPages || len(contacts) == 0 {
 			break
 		}
 
@@ -181,6 +181,58 @@ func (c *Contacts) Update(id interface{}, params map[string]interface{}) (map[st
 //	_, err := client.Contact().Contacts().Delete("CO1234567890abcdef1234567890abcdef")
 func (c *Contacts) Delete(id interface{}) (map[string]interface{}, error) {
 	return c.handler.Delete(fmt.Sprintf("contact/contacts/%v", id))
+}
+
+// Pause temporarily pauses a contact.
+//
+// The id parameter should be the contact SID (e.g., "CO1234567890abcdef1234567890abcdef").
+// Pausing stops notifications to this contact. Use Resume() to restart.
+//
+// Example:
+//
+//	_, err := client.Contact().Contacts().Pause("CO1234567890abcdef1234567890abcdef")
+func (c *Contacts) Pause(id interface{}) (map[string]interface{}, error) {
+	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/pause", id), nil)
+}
+
+// Resume re-activates a paused contact.
+//
+// The id parameter should be the contact SID (e.g., "CO1234567890abcdef1234567890abcdef").
+// This resumes notifications to a previously paused contact.
+//
+// Example:
+//
+//	_, err := client.Contact().Contacts().Resume("CO1234567890abcdef1234567890abcdef")
+func (c *Contacts) Resume(id interface{}) (map[string]interface{}, error) {
+	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/resume", id), nil)
+}
+
+// Confirm confirms a pending contact using a confirmation code.
+//
+// The id parameter should be the contact SID (e.g., "CO1234567890abcdef1234567890abcdef").
+//
+// Required parameters:
+//   - authcode: The confirmation code delivered to the contact
+//
+// Example:
+//
+//	_, err := client.Contact().Contacts().Confirm("CO1234567890abcdef1234567890abcdef", map[string]interface{}{
+//	    "authcode": "3Kx3se",
+//	})
+func (c *Contacts) Confirm(id interface{}, params map[string]interface{}) (map[string]interface{}, error) {
+	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/confirm", id), params)
+}
+
+// Resend resends the confirmation to a pending contact.
+//
+// The id parameter should be the contact SID (e.g., "CO1234567890abcdef1234567890abcdef").
+// The contact must be in 'pending' status.
+//
+// Example:
+//
+//	_, err := client.Contact().Contacts().Resend("CO1234567890abcdef1234567890abcdef")
+func (c *Contacts) Resend(id interface{}) (map[string]interface{}, error) {
+	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/resend", id), nil)
 }
 
 // Groups handles contact group management operations.
@@ -261,12 +313,12 @@ func (g *Groups) GetAll(params map[string]interface{}) ([]interface{}, error) {
 		allItems = append(allItems, groups...)
 
 		// Check if there are more pages
-		hasMore := false
-		if hm, ok := response["has_more"].(bool); ok {
-			hasMore = hm
+		totalPages := 1.0
+		if tp, ok := response["total_pages"].(float64); ok {
+			totalPages = tp
 		}
 
-		if !hasMore || len(groups) == 0 {
+		if float64(page) >= totalPages || len(groups) == 0 {
 			break
 		}
 
