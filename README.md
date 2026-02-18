@@ -3,10 +3,32 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/generator-labs/go-sdk.svg)](https://pkg.go.dev/github.com/generator-labs/go-sdk)
 [![Go Report Card](https://goreportcard.com/badge/github.com/generator-labs/go-sdk)](https://goreportcard.com/report/github.com/generator-labs/go-sdk)
 [![Tests](https://github.com/generator-labs/go-sdk/workflows/Tests/badge.svg)](https://github.com/generator-labs/go-sdk/actions)
-[![CodeQL](https://github.com/generator-labs/go-sdk/workflows/CodeQL/badge.svg)](https://github.com/generator-labs/go-sdk/actions?query=workflow%3ACodeQL)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Official Go SDK for the [Generator Labs API](https://generatorlabs.com). This library provides a simple and intuitive interface for interacting with the Generator Labs v4.0 API, including RBL monitoring, contact management, and more.
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Webhook Verification](#webhook-verification)
+- [API Reference](#api-reference)
+  - [Client Initialization](#client-initialization)
+  - [Configuration Options](#configuration-options)
+  - [Pagination](#pagination)
+  - [RBL Monitoring](#rbl-monitoring) - [Hosts](#hosts) | [Profiles](#profiles) | [Sources](#sources) | [Check & Listings](#check--listings)
+  - [Certificate Monitoring](#certificate-monitoring) - [Errors](#errors) | [Monitors](#monitors) | [Profiles](#profiles-1)
+  - [Contact Management](#contact-management) - [Contacts](#contacts) | [Groups](#groups)
+- [Error Handling](#error-handling)
+- [Retry Logic](#retry-logic)
+- [Examples](#examples)
+- [Requirements](#requirements)
+- [Testing](#testing)
+- [Security](#security)
+- [License](#license)
+- [Support](#support)
+- [Contributing](#contributing)
 
 ## Features
 
@@ -17,7 +39,6 @@ Official Go SDK for the [Generator Labs API](https://generatorlabs.com). This li
 - Connection pooling and timeout management
 - Type-safe API methods
 - Comprehensive error handling
-- Security scanning with CodeQL and Dependabot
 - Go 1.21+ support
 
 ## Installation
@@ -73,8 +94,10 @@ func main() {
     }
     fmt.Printf("Hosts: %+v\n", hosts)
 
-    // Check an IP address
-    result, err := client.RBL().Check("8.8.8.8")
+    // Start a manual RBL check
+    result, err := client.RBL().Check().Start(map[string]interface{}{
+        "host": "8.8.8.8",
+    })
     if err != nil {
         log.Fatal(err)
     }
@@ -176,24 +199,33 @@ allGroups, err := client.Contact().Groups().GetAll(nil)
 hosts, err := client.RBL().Hosts().Get()
 
 // Get a specific host
-host, err := client.RBL().Hosts().Get(123)
+host, err := client.RBL().Hosts().Get("HT1a2b3c4d5e6f7890abcdef1234567890")
 
 // Get multiple hosts
-hosts, err := client.RBL().Hosts().Get(123, 456, 789)
+hosts, err := client.RBL().Hosts().Get("HT1a2b3c4d5e6f7890abcdef1234567890", "HT2b3c4d5e6f7890abcdef12345678901a")
 
 // Create a host
 params := map[string]interface{}{
-    "ip": "8.8.8.8",
-    "description": "Google DNS",
+    "host": "8.8.8.8",
+    "name": "Google DNS",
+    "profile": "RP9f8e7d6c5b4a3210fedcba0987654321",
+    "contact_group": []string{
+        "CG4f3e2d1c0b9a8776655443322110fedc",
+        "CG5a6b7c8d9e0f1234567890abcdef1234",
+    },
+    "tags": []string{"production", "web"},
 }
 host, err := client.RBL().Hosts().Create(params)
 
 // Update a host
-params := map[string]interface{}{"description": "Updated description"}
-host, err := client.RBL().Hosts().Update(123, params)
+params := map[string]interface{}{
+    "name": "Updated description",
+    "tags": []string{"production", "web"},
+}
+host, err := client.RBL().Hosts().Update("HT1a2b3c4d5e6f7890abcdef1234567890", params)
 
 // Delete a host
-result, err := client.RBL().Hosts().Delete(123)
+result, err := client.RBL().Hosts().Delete("HT1a2b3c4d5e6f7890abcdef1234567890")
 ```
 
 #### Profiles
@@ -203,9 +235,30 @@ result, err := client.RBL().Hosts().Delete(123)
 profiles, err := client.RBL().Profiles().Get()
 
 // Get a specific profile
-profile, err := client.RBL().Profiles().Get(1)
+profile, err := client.RBL().Profiles().Get("RP9f8e7d6c5b4a3210fedcba0987654321")
 
-// Create/Update/Delete - similar to Hosts
+// Create a profile
+params := map[string]interface{}{
+    "name": "My Custom Profile",
+    "entries": []string{
+        "RB1234567890abcdef1234567890abcdef",
+        "RB0987654321fedcba0987654321fedcba",
+    },
+}
+profile, err := client.RBL().Profiles().Create(params)
+
+// Update a profile
+params := map[string]interface{}{
+    "name": "Updated Profile Name",
+    "entries": []string{
+        "RB1234567890abcdef1234567890abcdef",
+        "RB0987654321fedcba0987654321fedcba",
+    },
+}
+profile, err := client.RBL().Profiles().Update("RP9f8e7d6c5b4a3210fedcba0987654321", params)
+
+// Delete a profile
+result, err := client.RBL().Profiles().Delete("RP9f8e7d6c5b4a3210fedcba0987654321")
 ```
 
 #### Sources
@@ -215,16 +268,37 @@ profile, err := client.RBL().Profiles().Get(1)
 sources, err := client.RBL().Sources().Get()
 
 // Get a specific source
-source, err := client.RBL().Sources().Get(10)
+source, err := client.RBL().Sources().Get("RB18c470cc518a09678bb280960dbdd524")
 
-// Create/Update/Delete - similar to Hosts
+// Create a custom source
+params := map[string]interface{}{
+    "host": "custom.rbl.example.com",
+    "type": "rbl",
+    "custom_codes": []string{"127.0.0.2", "127.0.0.3"},
+}
+source, err := client.RBL().Sources().Create(params)
+
+// Update a source
+params := map[string]interface{}{
+    "host": "updated.rbl.example.com",
+    "custom_codes": []string{"127.0.0.2", "127.0.0.3"},
+}
+source, err := client.RBL().Sources().Update("RB18c470cc518a09678bb280960dbdd524", params)
+
+// Delete a source
+result, err := client.RBL().Sources().Delete("RB18c470cc518a09678bb280960dbdd524")
 ```
 
 #### Check & Listings
 
 ```go
-// Check an IP address
-result, err := client.RBL().Check("8.8.8.8")
+// Start a manual RBL check
+result, err := client.RBL().Check().Start(map[string]interface{}{
+    "host": "8.8.8.8",
+})
+
+// Get check status
+status, err := client.RBL().Check().Status("check_id")
 
 // Get current listings
 listings, err := client.RBL().Listings()
@@ -269,10 +343,13 @@ if err != nil {
 params := map[string]interface{}{
     "name": "Production Web Server",
     "hostname": "example.com",
-    "port": 443,
     "protocol": "https",
-    "cert_profile": "CP79b597e61a984a35b5eb7dcdbc3de53c",
-    "contact_group": "CG4f3e2d1c0b9a8776655443322110fed",
+    "profile": "CP79b597e61a984a35b5eb7dcdbc3de53c",
+    "contact_group": []string{
+        "CG4f3e2d1c0b9a8776655443322110fedc",
+        "CG5a6b7c8d9e0f1234567890abcdef1234",
+    },
+    "tags": []string{"production", "web", "ssl"},
 }
 monitor, err := client.Cert().Monitors().Create(params)
 if err != nil {
@@ -280,7 +357,10 @@ if err != nil {
 }
 
 // Update a monitor
-params := map[string]interface{}{"name": "Updated Server Name"}
+params := map[string]interface{}{
+    "name": "Updated Server Name",
+    "tags": []string{"production", "web", "ssl"},
+}
 monitor, err := client.Cert().Monitors().Update("CM62944aeeee2b46d7a28221164f38976a", params)
 if err != nil {
     log.Fatal(err)
@@ -323,8 +403,11 @@ if err != nil {
 // Create a profile
 params := map[string]interface{}{
     "name": "Standard Certificate Profile",
-    "expiration_warning_days": 30,
-    "expiration_critical_days": 7,
+    "expiration_thresholds": []int{30, 14, 7},
+    "alert_on_expiration":   true,
+    "alert_on_name_mismatch":       true,
+    "alert_on_misconfigurations":   true,
+    "alert_on_changes":             true,
 }
 profile, err := client.Cert().Profiles().Create(params)
 if err != nil {
@@ -332,8 +415,12 @@ if err != nil {
 }
 
 // Update a profile
-params := map[string]interface{}{"expiration_warning_days": 45}
-profile, err := client.Cert().Profiles().Update("CP79b597e61a984a35b5eb7dcdbc3de53c", params)
+params = map[string]interface{}{
+    "expiration_thresholds":      []int{45, 14, 7},
+    "alert_on_misconfigurations": true,
+    "alert_on_changes":           true,
+}
+profile, err = client.Cert().Profiles().Update("CP79b597e61a984a35b5eb7dcdbc3de53c", params)
 if err != nil {
     log.Fatal(err)
 }
@@ -354,24 +441,35 @@ if err != nil {
 contacts, err := client.Contact().Contacts().Get()
 
 // Get a specific contact
-contact, err := client.Contact().Contacts().Get(456)
+contact, err := client.Contact().Contacts().Get("COabcdef1234567890abcdef1234567890")
 
 // Get multiple contacts
-contacts, err := client.Contact().Contacts().Get(456, 789)
+contacts, err := client.Contact().Contacts().Get("COabcdef1234567890abcdef1234567890", "CO1234567890abcdef1234567890abcdef")
 
 // Create a contact
 params := map[string]interface{}{
-    "email": "user@example.com",
-    "name": "John Doe",
+    "contact": "user@example.com",
+    "type":    "email",
+    "schedule": "every_check",
+    "contact_group": []string{
+        "CG4f3e2d1c0b9a8776655443322110fedc",
+        "CG5a6b7c8d9e0f1234567890abcdef1234",
+    },
 }
 contact, err := client.Contact().Contacts().Create(params)
 
 // Update a contact
-params := map[string]interface{}{"name": "Jane Doe"}
-contact, err := client.Contact().Contacts().Update(456, params)
+params := map[string]interface{}{
+    "contact": "updated@example.com",
+    "contact_group": []string{
+        "CG4f3e2d1c0b9a8776655443322110fedc",
+        "CG5a6b7c8d9e0f1234567890abcdef1234",
+    },
+}
+contact, err := client.Contact().Contacts().Update("COabcdef1234567890abcdef1234567890", params)
 
 // Delete a contact
-result, err := client.Contact().Contacts().Delete(456)
+result, err := client.Contact().Contacts().Delete("COabcdef1234567890abcdef1234567890")
 ```
 
 #### Groups
@@ -381,9 +479,22 @@ result, err := client.Contact().Contacts().Delete(456)
 groups, err := client.Contact().Groups().Get()
 
 // Get a specific group
-group, err := client.Contact().Groups().Get(10)
+group, err := client.Contact().Groups().Get("CG4f3e2d1c0b9a8776655443322110fedc")
 
-// Create/Update/Delete - similar to Contacts
+// Create a group
+params := map[string]interface{}{
+    "name": "Primary Contacts",
+}
+group, err := client.Contact().Groups().Create(params)
+
+// Update a group
+params := map[string]interface{}{
+    "name": "Updated Group Name",
+}
+group, err := client.Contact().Groups().Update("CG4f3e2d1c0b9a8776655443322110fedc", params)
+
+// Delete a group
+result, err := client.Contact().Groups().Delete("CG4f3e2d1c0b9a8776655443322110fedc")
 ```
 
 ## Error Handling
