@@ -137,18 +137,18 @@ func (c *Contacts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 // Create creates a new contact.
 //
 // Required parameters:
+//   - contact: Email address, phone number, or webhook URL
 //   - type: Contact type ("email" or "sms")
-//   - value: Email address or phone number (E.164 format for SMS)
-//
-// Optional parameters:
-//   - name: Descriptive name for the contact
+//   - schedule: Notification schedule ("every_check", "start_and_end", "while_listed")
+//   - contact_group: Contact group SID(s)
 //
 // Example:
 //
 //	contact, err := client.Contact().Contacts().Create(map[string]interface{}{
+//	    "contact": "alerts@example.com",
 //	    "type": "email",
-//	    "value": "alerts@example.com",
-//	    "name": "Operations Team",
+//	    "schedule": "every_check",
+//	    "contact_group": "CG4f3e2d1c0b9a8776655443322110fedc",
 //	})
 func (c *Contacts) Create(params map[string]interface{}) (map[string]interface{}, error) {
 	return c.handler.Post("contact/contacts", params)
@@ -159,8 +159,9 @@ func (c *Contacts) Create(params map[string]interface{}) (map[string]interface{}
 // The id parameter should be the contact SID (e.g., "CO1234567890abcdef1234567890abcdef").
 //
 // Updatable fields:
-//   - name: Update the contact name
-//   - value: Update the email or phone number
+//   - contact: Update the email, phone number, or webhook URL
+//   - schedule: Update the notification schedule
+//   - contact_group: Update the contact group(s)
 //
 // Example:
 //

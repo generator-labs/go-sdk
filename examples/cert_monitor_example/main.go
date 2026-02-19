@@ -118,9 +118,8 @@ func main() {
 	httpsMonitor, err := client.Cert().Monitors().Create(map[string]interface{}{
 		"name":          "Example HTTPS Monitor",
 		"hostname":      "example.com",
-		"port":          443,
 		"protocol":      "https",
-		"cert_profile":  profileID,
+		"profile":       profileID,
 		"contact_group": "CG4f3e2d1c0b9a8776655443322110fed", // Use your contact group ID
 	})
 	if err != nil {
@@ -138,9 +137,8 @@ func main() {
 	smtpsMonitor, err := client.Cert().Monitors().Create(map[string]interface{}{
 		"name":          "Example Mail Server Monitor",
 		"hostname":      "mail.example.com",
-		"port":          465,
 		"protocol":      "smtps",
-		"cert_profile":  profileID,
+		"profile":       profileID,
 		"contact_group": "CG4f3e2d1c0b9a8776655443322110fed",
 	})
 	if err != nil {

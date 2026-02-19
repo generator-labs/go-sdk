@@ -234,7 +234,7 @@ func (h *RBLHosts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 //   - type: Host type ("rbl", "uribl", or "ip_range")
 //
 // Optional parameters:
-//   - rbl_profile: Monitoring profile ID (e.g., "RP9f8e7d6c5b4a3210fedcba0987654321")
+//   - profile: Monitoring profile ID (e.g., "RP9f8e7d6c5b4a3210fedcba0987654321")
 //   - contact_group: Contact group ID (e.g., "CG4f3e2d1c0b9a8776655443322110fedc")
 //
 // Example:
@@ -243,7 +243,7 @@ func (h *RBLHosts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 //	    "name": "Production Mail Server",
 //	    "host": "192.168.1.100",
 //	    "type": "rbl",
-//	    "rbl_profile": "RP9f8e7d6c5b4a3210fedcba0987654321",
+//	    "profile": "RP9f8e7d6c5b4a3210fedcba0987654321",
 //	})
 func (h *RBLHosts) Create(params map[string]interface{}) (map[string]interface{}, error) {
 	return h.handler.Post("rbl/hosts", params)
@@ -255,7 +255,7 @@ func (h *RBLHosts) Create(params map[string]interface{}) (map[string]interface{}
 //
 // Updatable fields:
 //   - name: Update the host name
-//   - rbl_profile: Change the monitoring profile
+//   - profile: Change the monitoring profile
 //   - contact_group: Change the contact group
 //
 // Example:
@@ -403,13 +403,13 @@ func (p *RBLProfiles) GetAll(params map[string]interface{}) ([]interface{}, erro
 //
 // Required parameters:
 //   - name: Descriptive name for the profile
-//   - sources: Array of RBL source IDs to include in checks
+//   - entries: Array of RBL source IDs to include in checks
 //
 // Example:
 //
 //	profile, err := client.RBL().Profiles().Create(map[string]interface{}{
 //	    "name": "Standard RBL Check",
-//	    "sources": []string{"RB1234567890", "RB0987654321"},
+//	    "entries": []string{"RB1234567890", "RB0987654321"},
 //	})
 func (p *RBLProfiles) Create(params map[string]interface{}) (map[string]interface{}, error) {
 	return p.handler.Post("rbl/profiles", params)
@@ -421,7 +421,7 @@ func (p *RBLProfiles) Create(params map[string]interface{}) (map[string]interfac
 //
 // Updatable fields:
 //   - name: Update the profile name
-//   - sources: Update the list of RBL sources
+//   - entries: Update the list of RBL sources
 //
 // Example:
 //

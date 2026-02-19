@@ -255,12 +255,11 @@ func (m *CertMonitors) GetAll(params map[string]interface{}) ([]interface{}, err
 // Required parameters:
 //   - hostname: Domain name or IP address to monitor
 //   - protocol: Protocol to use ("https", "smtps", "imaps", "ldaps", "mysql", "postgresql", "sips")
-//   - port: Port number (e.g., 443 for HTTPS, 587 for SMTPS)
-//
-// Optional parameters:
 //   - name: Descriptive name for the monitor
-//   - cert_profile: Certificate monitoring profile SID (e.g., "CP79b597e61a984a35b5eb7dcdbc3de53c")
+//   - profile: Certificate monitoring profile SID (e.g., "CP79b597e61a984a35b5eb7dcdbc3de53c")
 //   - contact_group: Contact group SID for alerts (e.g., "CG4f3e2d1c0b9a8776655443322110fedc")
+//
+// Note: port is derived from the protocol and only appears in response objects.
 //
 // Example:
 //
@@ -268,8 +267,7 @@ func (m *CertMonitors) GetAll(params map[string]interface{}) ([]interface{}, err
 //	    "name": "Production HTTPS",
 //	    "hostname": "www.example.com",
 //	    "protocol": "https",
-//	    "port": 443,
-//	    "cert_profile": "CP79b597e61a984a35b5eb7dcdbc3de53c",
+//	    "profile": "CP79b597e61a984a35b5eb7dcdbc3de53c",
 //	})
 func (m *CertMonitors) Create(params map[string]interface{}) (map[string]interface{}, error) {
 	return m.handler.Post("cert/monitors", params)
@@ -282,8 +280,7 @@ func (m *CertMonitors) Create(params map[string]interface{}) (map[string]interfa
 // Updatable fields:
 //   - name: Update the monitor name
 //   - hostname: Update the hostname
-//   - port: Update the port number
-//   - cert_profile: Change the monitoring profile
+//   - profile: Change the monitoring profile
 //   - contact_group: Change the contact group
 //
 // Example:

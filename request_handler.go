@@ -138,7 +138,18 @@ func (h *RequestHandler) makeRequest(method, path string, params map[string]inte
 		// Add form parameters
 		formData := url.Values{}
 		for key, value := range params {
-			formData.Add(key, fmt.Sprintf("%v", value))
+			switch v := value.(type) {
+			case []string:
+				formData.Add(key, strings.Join(v, ","))
+			case []interface{}:
+				parts := make([]string, len(v))
+				for i, item := range v {
+					parts[i] = fmt.Sprintf("%v", item)
+				}
+				formData.Add(key, strings.Join(parts, ","))
+			default:
+				formData.Add(key, fmt.Sprintf("%v", value))
+			}
 		}
 		req, err = retryablehttp.NewRequest(method, apiURL, strings.NewReader(formData.Encode()))
 		if err == nil {
