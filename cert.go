@@ -85,7 +85,7 @@ type CertErrors struct {
 //	errors, err := client.Cert().Errors().Get(map[string]interface{}{
 //	    "monitor_id": "CM62944aeeee2b46d7a28221164f38976a",
 //	})
-func (e *CertErrors) Get(params ...interface{}) (map[string]interface{}, error) {
+func (e *CertErrors) Get(params ...interface{}) (*Response, error) {
 	if len(params) == 0 {
 		return e.handler.Get("cert/errors", nil)
 	}
@@ -122,7 +122,7 @@ func (e *CertErrors) GetAll(params map[string]interface{}) ([]interface{}, error
 
 		// Extract errors from response
 		errors := []interface{}{}
-		if errorList, ok := response["errors"].([]interface{}); ok {
+		if errorList, ok := response.Data["errors"].([]interface{}); ok {
 			errors = errorList
 		}
 
@@ -130,7 +130,7 @@ func (e *CertErrors) GetAll(params map[string]interface{}) ([]interface{}, error
 
 		// Check if there are more pages
 		totalPages := 1.0
-		if tp, ok := response["total_pages"].(float64); ok {
+		if tp, ok := response.Data["total_pages"].(float64); ok {
 			totalPages = tp
 		}
 
@@ -182,7 +182,7 @@ type CertMonitors struct {
 //
 //	// Get single monitor
 //	monitor, err := client.Cert().Monitors().Get("CM62944aeeee2b46d7a28221164f38976a")
-func (m *CertMonitors) Get(ids ...interface{}) (map[string]interface{}, error) {
+func (m *CertMonitors) Get(ids ...interface{}) (*Response, error) {
 	if len(ids) == 0 {
 		return m.handler.Get("cert/monitors", nil)
 	}
@@ -228,7 +228,7 @@ func (m *CertMonitors) GetAll(params map[string]interface{}) ([]interface{}, err
 
 		// Extract monitors from response
 		monitors := []interface{}{}
-		if monitorList, ok := response["monitors"].([]interface{}); ok {
+		if monitorList, ok := response.Data["monitors"].([]interface{}); ok {
 			monitors = monitorList
 		}
 
@@ -236,7 +236,7 @@ func (m *CertMonitors) GetAll(params map[string]interface{}) ([]interface{}, err
 
 		// Check if there are more pages
 		totalPages := 1.0
-		if tp, ok := response["total_pages"].(float64); ok {
+		if tp, ok := response.Data["total_pages"].(float64); ok {
 			totalPages = tp
 		}
 
@@ -269,7 +269,7 @@ func (m *CertMonitors) GetAll(params map[string]interface{}) ([]interface{}, err
 //	    "protocol": "https",
 //	    "profile": "CP79b597e61a984a35b5eb7dcdbc3de53c",
 //	})
-func (m *CertMonitors) Create(params map[string]interface{}) (map[string]interface{}, error) {
+func (m *CertMonitors) Create(params map[string]interface{}) (*Response, error) {
 	return m.handler.Post("cert/monitors", params)
 }
 
@@ -288,7 +288,7 @@ func (m *CertMonitors) Create(params map[string]interface{}) (map[string]interfa
 //	_, err := client.Cert().Monitors().Update("CM62944aeeee2b46d7a28221164f38976a", map[string]interface{}{
 //	    "name": "Updated Monitor Name",
 //	})
-func (m *CertMonitors) Update(id interface{}, params map[string]interface{}) (map[string]interface{}, error) {
+func (m *CertMonitors) Update(id interface{}, params map[string]interface{}) (*Response, error) {
 	return m.handler.Put(fmt.Sprintf("cert/monitors/%v", id), params)
 }
 
@@ -300,7 +300,7 @@ func (m *CertMonitors) Update(id interface{}, params map[string]interface{}) (ma
 // Example:
 //
 //	_, err := client.Cert().Monitors().Delete("CM62944aeeee2b46d7a28221164f38976a")
-func (m *CertMonitors) Delete(id interface{}) (map[string]interface{}, error) {
+func (m *CertMonitors) Delete(id interface{}) (*Response, error) {
 	return m.handler.Delete(fmt.Sprintf("cert/monitors/%v", id))
 }
 
@@ -312,7 +312,7 @@ func (m *CertMonitors) Delete(id interface{}) (map[string]interface{}, error) {
 // Example:
 //
 //	_, err := client.Cert().Monitors().Pause("CM62944aeeee2b46d7a28221164f38976a")
-func (m *CertMonitors) Pause(id interface{}) (map[string]interface{}, error) {
+func (m *CertMonitors) Pause(id interface{}) (*Response, error) {
 	return m.handler.Post(fmt.Sprintf("cert/monitors/%v/pause", id), nil)
 }
 
@@ -324,7 +324,7 @@ func (m *CertMonitors) Pause(id interface{}) (map[string]interface{}, error) {
 // Example:
 //
 //	_, err := client.Cert().Monitors().Resume("CM62944aeeee2b46d7a28221164f38976a")
-func (m *CertMonitors) Resume(id interface{}) (map[string]interface{}, error) {
+func (m *CertMonitors) Resume(id interface{}) (*Response, error) {
 	return m.handler.Post(fmt.Sprintf("cert/monitors/%v/resume", id), nil)
 }
 
@@ -354,7 +354,7 @@ type CertProfiles struct {
 //
 //	// Get single profile
 //	profile, err := client.Cert().Profiles().Get("CP79b597e61a984a35b5eb7dcdbc3de53c")
-func (p *CertProfiles) Get(ids ...interface{}) (map[string]interface{}, error) {
+func (p *CertProfiles) Get(ids ...interface{}) (*Response, error) {
 	if len(ids) == 0 {
 		return p.handler.Get("cert/profiles", nil)
 	}
@@ -400,7 +400,7 @@ func (p *CertProfiles) GetAll(params map[string]interface{}) ([]interface{}, err
 
 		// Extract profiles from response
 		profiles := []interface{}{}
-		if profileList, ok := response["profiles"].([]interface{}); ok {
+		if profileList, ok := response.Data["profiles"].([]interface{}); ok {
 			profiles = profileList
 		}
 
@@ -408,7 +408,7 @@ func (p *CertProfiles) GetAll(params map[string]interface{}) ([]interface{}, err
 
 		// Check if there are more pages
 		totalPages := 1.0
-		if tp, ok := response["total_pages"].(float64); ok {
+		if tp, ok := response.Data["total_pages"].(float64); ok {
 			totalPages = tp
 		}
 
@@ -439,7 +439,7 @@ func (p *CertProfiles) GetAll(params map[string]interface{}) ([]interface{}, err
 //	    "expiration_thresholds": []int{30, 14, 7, 1},
 //	    "alert_on_invalid": true,
 //	})
-func (p *CertProfiles) Create(params map[string]interface{}) (map[string]interface{}, error) {
+func (p *CertProfiles) Create(params map[string]interface{}) (*Response, error) {
 	return p.handler.Post("cert/profiles", params)
 }
 
@@ -459,7 +459,7 @@ func (p *CertProfiles) Create(params map[string]interface{}) (map[string]interfa
 //	    "name": "Updated Profile Name",
 //	    "expiration_thresholds": []int{60, 30, 14},
 //	})
-func (p *CertProfiles) Update(id interface{}, params map[string]interface{}) (map[string]interface{}, error) {
+func (p *CertProfiles) Update(id interface{}, params map[string]interface{}) (*Response, error) {
 	return p.handler.Put(fmt.Sprintf("cert/profiles/%v", id), params)
 }
 
@@ -471,6 +471,6 @@ func (p *CertProfiles) Update(id interface{}, params map[string]interface{}) (ma
 // Example:
 //
 //	_, err := client.Cert().Profiles().Delete("CP79b597e61a984a35b5eb7dcdbc3de53c")
-func (p *CertProfiles) Delete(id interface{}) (map[string]interface{}, error) {
+func (p *CertProfiles) Delete(id interface{}) (*Response, error) {
 	return p.handler.Delete(fmt.Sprintf("cert/profiles/%v", id))
 }

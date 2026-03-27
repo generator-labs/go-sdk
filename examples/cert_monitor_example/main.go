@@ -31,7 +31,7 @@ func main() {
 		log.Fatalf("API Error: %v", err)
 	}
 
-	if errorList, ok := errors["errors"].([]interface{}); ok {
+	if errorList, ok := errors.Data["errors"].([]interface{}); ok {
 		fmt.Printf("Total errors: %d\n\n", len(errorList))
 		for _, e := range errorList {
 			if errorData, ok := e.(map[string]interface{}); ok {
@@ -54,7 +54,7 @@ func main() {
 		log.Fatalf("API Error: %v", err)
 	}
 
-	if profileList, ok := profiles["profiles"].([]interface{}); ok {
+	if profileList, ok := profiles.Data["profiles"].([]interface{}); ok {
 		fmt.Printf("Total profiles: %d\n", len(profileList))
 	}
 
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	var profileID string
-	if profileData, ok := newProfile["profile"].(map[string]interface{}); ok {
+	if profileData, ok := newProfile.Data["profile"].(map[string]interface{}); ok {
 		profileID = fmt.Sprintf("%v", profileData["id"])
 		fmt.Printf("Created profile ID: %s\n", profileID)
 	}
@@ -83,7 +83,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("API Error: %v", err)
 	}
-	if profileData, ok := profile["profile"].(map[string]interface{}); ok {
+	if profileData, ok := profile.Data["profile"].(map[string]interface{}); ok {
 		fmt.Printf("Profile name: %v\n", profileData["name"])
 		fmt.Printf("Expiration warning days: %v\n", profileData["expiration_warning_days"])
 	}
@@ -109,7 +109,7 @@ func main() {
 		log.Fatalf("API Error: %v", err)
 	}
 
-	if monitorList, ok := monitors["monitors"].([]interface{}); ok {
+	if monitorList, ok := monitors.Data["monitors"].([]interface{}); ok {
 		fmt.Printf("Total monitors: %d\n", len(monitorList))
 	}
 
@@ -127,7 +127,7 @@ func main() {
 	}
 
 	var httpsMonitorID string
-	if monitorData, ok := httpsMonitor["monitor"].(map[string]interface{}); ok {
+	if monitorData, ok := httpsMonitor.Data["monitor"].(map[string]interface{}); ok {
 		httpsMonitorID = fmt.Sprintf("%v", monitorData["id"])
 		fmt.Printf("Created HTTPS monitor ID: %s\n", httpsMonitorID)
 	}
@@ -146,7 +146,7 @@ func main() {
 	}
 
 	var smtpsMonitorID string
-	if monitorData, ok := smtpsMonitor["monitor"].(map[string]interface{}); ok {
+	if monitorData, ok := smtpsMonitor.Data["monitor"].(map[string]interface{}); ok {
 		smtpsMonitorID = fmt.Sprintf("%v", monitorData["id"])
 		fmt.Printf("Created SMTPS monitor ID: %s\n", smtpsMonitorID)
 	}
@@ -157,7 +157,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("API Error: %v", err)
 	}
-	if monitorData, ok := monitor["monitor"].(map[string]interface{}); ok {
+	if monitorData, ok := monitor.Data["monitor"].(map[string]interface{}); ok {
 		fmt.Printf("Monitor name: %v\n", monitorData["name"])
 		fmt.Printf("Hostname: %v\n", monitorData["hostname"])
 		fmt.Printf("Protocol: %v\n", monitorData["protocol"])

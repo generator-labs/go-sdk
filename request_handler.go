@@ -15,6 +15,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -79,11 +80,22 @@ func NewRequestHandler(accountSID, authToken string, config *Config) *RequestHan
 		return false, nil
 	}
 
-	// Exponential backoff with configurable multiplier
+	// Respect Retry-After header; fall back to exponential backoff
 	client.Backoff = func(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration {
 		if attemptNum == 0 {
 			return 0
 		}
+
+		// Use Retry-After header when present (rate limit responses)
+		if resp != nil {
+			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+				if seconds, err := strconv.Atoi(retryAfter); err == nil && seconds > 0 {
+					return time.Duration(seconds) * time.Second
+				}
+			}
+		}
+
+		// Exponential backoff with configurable multiplier
 		backoff := time.Duration(math.Pow(config.RetryBackoff, float64(attemptNum-1))) * time.Second
 		if backoff > max {
 			return max
@@ -120,7 +132,7 @@ func NewRequestHandler(accountSID, authToken string, config *Config) *RequestHan
 //   - The response body cannot be read or parsed
 //   - The API returns success=false in the response
 //   - The HTTP status code is >= 400
-func (h *RequestHandler) makeRequest(method, path string, params map[string]interface{}) (map[string]interface{}, error) {
+func (h *RequestHandler) makeRequest(method, path string, params map[string]interface{}) (*Response, error) {
 	apiURL := fmt.Sprintf("%s%s.json", h.baseURL, path)
 
 	var req *retryablehttp.Request
@@ -220,7 +232,19 @@ func (h *RequestHandler) makeRequest(method, path string, params map[string]inte
 		return nil, fmt.Errorf("API error: %s", errMsg)
 	}
 
-	return data, nil
+	// Parse rate limit headers
+	var rateLimit *RateLimitInfo
+	if limitHeader := resp.Header.Get("RateLimit-Limit"); limitHeader != "" {
+		remaining, _ := strconv.Atoi(resp.Header.Get("RateLimit-Remaining"))
+		reset, _ := strconv.Atoi(resp.Header.Get("RateLimit-Reset"))
+		rateLimit = &RateLimitInfo{
+			Limit:     limitHeader,
+			Remaining: remaining,
+			Reset:     reset,
+		}
+	}
+
+	return &Response{Data: data, RateLimit: rateLimit}, nil
 }
 
 // Get performs a GET request to the API.
@@ -231,7 +255,7 @@ func (h *RequestHandler) makeRequest(method, path string, params map[string]inte
 // Example:
 //
 //	response, err := handler.Get("rbl/hosts", map[string]interface{}{"status": "active"})
-func (h *RequestHandler) Get(path string, params map[string]interface{}) (map[string]interface{}, error) {
+func (h *RequestHandler) Get(path string, params map[string]interface{}) (*Response, error) {
 	return h.makeRequest("GET", path, params)
 }
 
@@ -243,7 +267,7 @@ func (h *RequestHandler) Get(path string, params map[string]interface{}) (map[st
 // Example:
 //
 //	response, err := handler.Post("rbl/hosts", map[string]interface{}{"name": "My Host", "host": "1.2.3.4"})
-func (h *RequestHandler) Post(path string, params map[string]interface{}) (map[string]interface{}, error) {
+func (h *RequestHandler) Post(path string, params map[string]interface{}) (*Response, error) {
 	return h.makeRequest("POST", path, params)
 }
 
@@ -255,7 +279,7 @@ func (h *RequestHandler) Post(path string, params map[string]interface{}) (map[s
 // Example:
 //
 //	response, err := handler.Put("rbl/hosts/HTxxxxxxxx", map[string]interface{}{"name": "Updated Name"})
-func (h *RequestHandler) Put(path string, params map[string]interface{}) (map[string]interface{}, error) {
+func (h *RequestHandler) Put(path string, params map[string]interface{}) (*Response, error) {
 	return h.makeRequest("PUT", path, params)
 }
 
@@ -267,6 +291,6 @@ func (h *RequestHandler) Put(path string, params map[string]interface{}) (map[st
 // Example:
 //
 //	response, err := handler.Delete("rbl/hosts/HTxxxxxxxx")
-func (h *RequestHandler) Delete(path string) (map[string]interface{}, error) {
+func (h *RequestHandler) Delete(path string) (*Response, error) {
 	return h.makeRequest("DELETE", path, nil)
 }

@@ -22,10 +22,12 @@ Official Go SDK for the [Generator Labs API](https://generatorlabs.com). This li
   - [Contact Management](#contact-management) - [Contacts](#contacts) | [Groups](#groups)
 - [Error Handling](#error-handling)
 - [Retry Logic](#retry-logic)
+- [Rate Limiting](#rate-limiting)
 - [Examples](#examples)
 - [Requirements](#requirements)
 - [Testing](#testing)
 - [Security](#security)
+- [Release History](#release-history)
 - [License](#license)
 - [Support](#support)
 - [Contributing](#contributing)
@@ -514,6 +516,7 @@ if err != nil {
 The SDK automatically retries failed requests with exponential backoff:
 - Configurable maximum retry attempts (default: 3)
 - Retries on connection errors, 5xx server errors, and 429 rate limits
+- Respects `Retry-After` header on 429 responses before falling back to exponential backoff
 - Configurable exponential backoff multiplier (default: 1.0 for 1s, 2s, 4s delays)
 - Configurable request timeout (default: 30 seconds)
 
@@ -526,6 +529,40 @@ config := &generatorlabs.Config{
     Timeout:      60 * time.Second,  // Longer timeout
 }
 client, err := generatorlabs.New(accountSID, authToken, config)
+```
+
+## Rate Limiting
+
+The API enforces two layers of rate limiting:
+
+- **Hourly limit**: 1,000 requests per hour per application
+- **Per-second limit**: varies by endpoint — 100 RPS for read operations, 50 RPS for write operations, and 20 RPS for manual check start
+
+When a rate limit is exceeded, the API returns HTTP 429 with a `Retry-After` header indicating how many seconds to wait. The SDK automatically respects this header during retries.
+
+All API responses include IETF draft rate limit headers, accessible via the `RateLimit` field on every response:
+
+| Header | Description | Example |
+|--------|-------------|---------|
+| `RateLimit-Limit` | Active rate limit policies | `1000;w=3600, 100;w=1` |
+| `RateLimit-Remaining` | Requests remaining in the most restrictive window | `95` |
+| `RateLimit-Reset` | Seconds until the most restrictive window resets | `1` |
+
+```go
+response, err := client.RBL().Hosts().Get()
+if err != nil {
+    log.Fatal(err)
+}
+
+// Access response data
+hosts := response.Data["data"]
+
+// Access rate limit info
+if response.RateLimit != nil {
+    fmt.Printf("Remaining: %d, Reset: %ds\n",
+        response.RateLimit.Remaining,
+        response.RateLimit.Reset)
+}
 ```
 
 ## Examples
@@ -559,6 +596,20 @@ go test -v
 ## Security
 
 For security best practices and vulnerability reporting, see [SECURITY.md](SECURITY.md).
+
+## Release History
+
+### v2.0.0 (2026-01-31)
+* Complete rewrite for Generator Labs API v4.0
+* RESTful endpoint design with proper HTTP verbs
+* Updated to use Generator Labs branding (formerly RBLTracker)
+* Automatic `Retry-After` header support on 429 rate limit responses
+* `Response` wrapper exposes per-request rate limit info (`RateLimit`)
+* Added `RateLimitInfo` struct with `Limit`, `Remaining`, and `Reset` fields
+* Automatic retry with exponential backoff on 429 and 5xx errors
+* Webhook signature verification with HMAC-SHA256 and constant-time comparison
+* Automatic pagination via `GetAll()` for large result sets
+* Standard library only — no external dependencies
 
 ## License
 

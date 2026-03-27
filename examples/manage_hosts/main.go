@@ -29,7 +29,7 @@ func main() {
 		log.Fatalf("API Error: %v", err)
 	}
 
-	if hostList, ok := hosts["hosts"].([]interface{}); ok {
+	if hostList, ok := hosts.Data["hosts"].([]interface{}); ok {
 		fmt.Printf("Total hosts: %d\n\n", len(hostList))
 		for _, h := range hostList {
 			if host, ok := h.(map[string]interface{}); ok {
@@ -51,7 +51,7 @@ func main() {
 	}
 
 	var hostID string
-	if hostData, ok := newHost["host"].(map[string]interface{}); ok {
+	if hostData, ok := newHost.Data["host"].(map[string]interface{}); ok {
 		hostID = fmt.Sprintf("%v", hostData["id"])
 		fmt.Printf("Created host ID: %s\n", hostID)
 	}

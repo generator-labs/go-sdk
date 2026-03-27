@@ -63,9 +63,9 @@ func main() {
 		// Log error and continue with cached/default data
 		fmt.Printf("API error: %v\n", err)
 		fmt.Println("Using cached data due to API error")
-		hosts = map[string]interface{}{"hosts": []interface{}{}}
+		hosts = &generatorlabs.Response{Data: map[string]interface{}{"hosts": []interface{}{}}}
 	} else {
-		if hostList, ok := hosts["hosts"].([]interface{}); ok {
+		if hostList, ok := hosts.Data["hosts"].([]interface{}); ok {
 			fmt.Printf("Successfully retrieved %d hosts\n", len(hostList))
 		}
 	}

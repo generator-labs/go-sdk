@@ -37,9 +37,9 @@ func main() {
 	fmt.Printf("%+v\n", result)
 
 	// Check if IP is listed
-	if listed, ok := result["listed"].(bool); ok && listed {
+	if listed, ok := result.Data["listed"].(bool); ok && listed {
 		fmt.Printf("\nWARNING: IP %s is listed on one or more RBLs!\n", ip)
-		if listings, ok := result["listings"].([]interface{}); ok {
+		if listings, ok := result.Data["listings"].([]interface{}); ok {
 			fmt.Printf("Listed on: %d RBL(s)\n", len(listings))
 		}
 	} else {

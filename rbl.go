@@ -73,7 +73,7 @@ func (r *RBL) Check() *RBLCheck {
 // Example:
 //
 //	listings, err := client.RBL().Listings()
-func (r *RBL) Listings() (map[string]interface{}, error) {
+func (r *RBL) Listings() (*Response, error) {
 	return r.handler.Get("rbl/listings", nil)
 }
 
@@ -99,7 +99,7 @@ type RBLCheck struct {
 //	    "host": "1.2.3.4",
 //	    "details": true,
 //	})
-func (c *RBLCheck) Start(params map[string]interface{}) (map[string]interface{}, error) {
+func (c *RBLCheck) Start(params map[string]interface{}) (*Response, error) {
 	return c.handler.Post("rbl/check/start", params)
 }
 
@@ -113,7 +113,7 @@ func (c *RBLCheck) Start(params map[string]interface{}) (map[string]interface{},
 // Example:
 //
 //	status, err := client.RBL().Check().Status("PP1234567890abcdef...", nil)
-func (c *RBLCheck) Status(id string, params map[string]interface{}) (map[string]interface{}, error) {
+func (c *RBLCheck) Status(id string, params map[string]interface{}) (*Response, error) {
 	return c.handler.Get(fmt.Sprintf("rbl/check/status/%s", id), params)
 }
 
@@ -153,7 +153,7 @@ type RBLHosts struct {
 //
 //	// Get multiple hosts
 //	hosts, err := client.RBL().Hosts().Get("HTxxxxxxxx", "HTyyyyyyyy")
-func (h *RBLHosts) Get(ids ...interface{}) (map[string]interface{}, error) {
+func (h *RBLHosts) Get(ids ...interface{}) (*Response, error) {
 	if len(ids) == 0 {
 		return h.handler.Get("rbl/hosts", nil)
 	}
@@ -204,7 +204,7 @@ func (h *RBLHosts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 
 		// Extract hosts from response
 		hosts := []interface{}{}
-		if hostList, ok := response["hosts"].([]interface{}); ok {
+		if hostList, ok := response.Data["hosts"].([]interface{}); ok {
 			hosts = hostList
 		}
 
@@ -212,7 +212,7 @@ func (h *RBLHosts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 
 		// Check if there are more pages
 		totalPages := 1.0
-		if tp, ok := response["total_pages"].(float64); ok {
+		if tp, ok := response.Data["total_pages"].(float64); ok {
 			totalPages = tp
 		}
 
@@ -245,7 +245,7 @@ func (h *RBLHosts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 //	    "type": "rbl",
 //	    "profile": "RP9f8e7d6c5b4a3210fedcba0987654321",
 //	})
-func (h *RBLHosts) Create(params map[string]interface{}) (map[string]interface{}, error) {
+func (h *RBLHosts) Create(params map[string]interface{}) (*Response, error) {
 	return h.handler.Post("rbl/hosts", params)
 }
 
@@ -263,7 +263,7 @@ func (h *RBLHosts) Create(params map[string]interface{}) (map[string]interface{}
 //	_, err := client.RBL().Hosts().Update("HT1a2b3c4d5e6f7890abcdef1234567890", map[string]interface{}{
 //	    "name": "Updated Server Name",
 //	})
-func (h *RBLHosts) Update(id interface{}, params map[string]interface{}) (map[string]interface{}, error) {
+func (h *RBLHosts) Update(id interface{}, params map[string]interface{}) (*Response, error) {
 	return h.handler.Put(fmt.Sprintf("rbl/hosts/%v", id), params)
 }
 
@@ -275,7 +275,7 @@ func (h *RBLHosts) Update(id interface{}, params map[string]interface{}) (map[st
 // Example:
 //
 //	_, err := client.RBL().Hosts().Delete("HT1a2b3c4d5e6f7890abcdef1234567890")
-func (h *RBLHosts) Delete(id interface{}) (map[string]interface{}, error) {
+func (h *RBLHosts) Delete(id interface{}) (*Response, error) {
 	return h.handler.Delete(fmt.Sprintf("rbl/hosts/%v", id))
 }
 
@@ -287,7 +287,7 @@ func (h *RBLHosts) Delete(id interface{}) (map[string]interface{}, error) {
 // Example:
 //
 //	_, err := client.RBL().Hosts().Pause("HT1a2b3c4d5e6f7890abcdef1234567890")
-func (h *RBLHosts) Pause(id interface{}) (map[string]interface{}, error) {
+func (h *RBLHosts) Pause(id interface{}) (*Response, error) {
 	return h.handler.Post(fmt.Sprintf("rbl/hosts/%v/pause", id), nil)
 }
 
@@ -299,7 +299,7 @@ func (h *RBLHosts) Pause(id interface{}) (map[string]interface{}, error) {
 // Example:
 //
 //	_, err := client.RBL().Hosts().Resume("HT1a2b3c4d5e6f7890abcdef1234567890")
-func (h *RBLHosts) Resume(id interface{}) (map[string]interface{}, error) {
+func (h *RBLHosts) Resume(id interface{}) (*Response, error) {
 	return h.handler.Post(fmt.Sprintf("rbl/hosts/%v/resume", id), nil)
 }
 
@@ -328,7 +328,7 @@ type RBLProfiles struct {
 //
 //	// Get single profile
 //	profile, err := client.RBL().Profiles().Get("RP9f8e7d6c5b4a3210fedcba0987654321")
-func (p *RBLProfiles) Get(ids ...interface{}) (map[string]interface{}, error) {
+func (p *RBLProfiles) Get(ids ...interface{}) (*Response, error) {
 	if len(ids) == 0 {
 		return p.handler.Get("rbl/profiles", nil)
 	}
@@ -374,7 +374,7 @@ func (p *RBLProfiles) GetAll(params map[string]interface{}) ([]interface{}, erro
 
 		// Extract profiles from response
 		profiles := []interface{}{}
-		if profileList, ok := response["profiles"].([]interface{}); ok {
+		if profileList, ok := response.Data["profiles"].([]interface{}); ok {
 			profiles = profileList
 		}
 
@@ -382,7 +382,7 @@ func (p *RBLProfiles) GetAll(params map[string]interface{}) ([]interface{}, erro
 
 		// Check if there are more pages
 		totalPages := 1.0
-		if tp, ok := response["total_pages"].(float64); ok {
+		if tp, ok := response.Data["total_pages"].(float64); ok {
 			totalPages = tp
 		}
 
@@ -411,7 +411,7 @@ func (p *RBLProfiles) GetAll(params map[string]interface{}) ([]interface{}, erro
 //	    "name": "Standard RBL Check",
 //	    "entries": []string{"RB1234567890", "RB0987654321"},
 //	})
-func (p *RBLProfiles) Create(params map[string]interface{}) (map[string]interface{}, error) {
+func (p *RBLProfiles) Create(params map[string]interface{}) (*Response, error) {
 	return p.handler.Post("rbl/profiles", params)
 }
 
@@ -428,7 +428,7 @@ func (p *RBLProfiles) Create(params map[string]interface{}) (map[string]interfac
 //	_, err := client.RBL().Profiles().Update("RP9f8e7d6c5b4a3210fedcba0987654321", map[string]interface{}{
 //	    "name": "Updated Profile Name",
 //	})
-func (p *RBLProfiles) Update(id interface{}, params map[string]interface{}) (map[string]interface{}, error) {
+func (p *RBLProfiles) Update(id interface{}, params map[string]interface{}) (*Response, error) {
 	return p.handler.Put(fmt.Sprintf("rbl/profiles/%v", id), params)
 }
 
@@ -440,7 +440,7 @@ func (p *RBLProfiles) Update(id interface{}, params map[string]interface{}) (map
 // Example:
 //
 //	_, err := client.RBL().Profiles().Delete("RP9f8e7d6c5b4a3210fedcba0987654321")
-func (p *RBLProfiles) Delete(id interface{}) (map[string]interface{}, error) {
+func (p *RBLProfiles) Delete(id interface{}) (*Response, error) {
 	return p.handler.Delete(fmt.Sprintf("rbl/profiles/%v", id))
 }
 
@@ -470,7 +470,7 @@ type RBLSources struct {
 //
 //	// Get single source
 //	source, err := client.RBL().Sources().Get("RB1234567890abcdef1234567890abcdef")
-func (s *RBLSources) Get(ids ...interface{}) (map[string]interface{}, error) {
+func (s *RBLSources) Get(ids ...interface{}) (*Response, error) {
 	if len(ids) == 0 {
 		return s.handler.Get("rbl/sources", nil)
 	}
@@ -516,7 +516,7 @@ func (s *RBLSources) GetAll(params map[string]interface{}) ([]interface{}, error
 
 		// Extract sources from response
 		sources := []interface{}{}
-		if sourceList, ok := response["sources"].([]interface{}); ok {
+		if sourceList, ok := response.Data["sources"].([]interface{}); ok {
 			sources = sourceList
 		}
 
@@ -524,7 +524,7 @@ func (s *RBLSources) GetAll(params map[string]interface{}) ([]interface{}, error
 
 		// Check if there are more pages
 		totalPages := 1.0
-		if tp, ok := response["total_pages"].(float64); ok {
+		if tp, ok := response.Data["total_pages"].(float64); ok {
 			totalPages = tp
 		}
 
@@ -555,7 +555,7 @@ func (s *RBLSources) GetAll(params map[string]interface{}) ([]interface{}, error
 //	    "name": "Private DNSBL",
 //	    "host": "private-dnsbl.example.com",
 //	})
-func (s *RBLSources) Create(params map[string]interface{}) (map[string]interface{}, error) {
+func (s *RBLSources) Create(params map[string]interface{}) (*Response, error) {
 	return s.handler.Post("rbl/sources", params)
 }
 
@@ -574,7 +574,7 @@ func (s *RBLSources) Create(params map[string]interface{}) (map[string]interface
 //	_, err := client.RBL().Sources().Update("RB1234567890abcdef1234567890abcdef", map[string]interface{}{
 //	    "name": "Updated Source Name",
 //	})
-func (s *RBLSources) Update(id interface{}, params map[string]interface{}) (map[string]interface{}, error) {
+func (s *RBLSources) Update(id interface{}, params map[string]interface{}) (*Response, error) {
 	return s.handler.Put(fmt.Sprintf("rbl/sources/%v", id), params)
 }
 
@@ -587,7 +587,7 @@ func (s *RBLSources) Update(id interface{}, params map[string]interface{}) (map[
 // Example:
 //
 //	_, err := client.RBL().Sources().Delete("RB1234567890abcdef1234567890abcdef")
-func (s *RBLSources) Delete(id interface{}) (map[string]interface{}, error) {
+func (s *RBLSources) Delete(id interface{}) (*Response, error) {
 	return s.handler.Delete(fmt.Sprintf("rbl/sources/%v", id))
 }
 
@@ -599,7 +599,7 @@ func (s *RBLSources) Delete(id interface{}) (map[string]interface{}, error) {
 // Example:
 //
 //	_, err := client.RBL().Sources().Pause("RB1234567890abcdef1234567890abcdef")
-func (s *RBLSources) Pause(id interface{}) (map[string]interface{}, error) {
+func (s *RBLSources) Pause(id interface{}) (*Response, error) {
 	return s.handler.Post(fmt.Sprintf("rbl/sources/%v/pause", id), nil)
 }
 
@@ -611,6 +611,6 @@ func (s *RBLSources) Pause(id interface{}) (map[string]interface{}, error) {
 // Example:
 //
 //	_, err := client.RBL().Sources().Resume("RB1234567890abcdef1234567890abcdef")
-func (s *RBLSources) Resume(id interface{}) (map[string]interface{}, error) {
+func (s *RBLSources) Resume(id interface{}) (*Response, error) {
 	return s.handler.Post(fmt.Sprintf("rbl/sources/%v/resume", id), nil)
 }

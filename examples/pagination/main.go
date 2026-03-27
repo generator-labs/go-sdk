@@ -40,7 +40,7 @@ func main() {
 		}
 
 		hosts := []interface{}{}
-		if hostList, ok := response["hosts"].([]interface{}); ok {
+		if hostList, ok := response.Data["hosts"].([]interface{}); ok {
 			hosts = hostList
 		}
 
@@ -49,7 +49,7 @@ func main() {
 
 		// Check if there are more pages
 		hasMore := false
-		if hm, ok := response["has_more"].(bool); ok {
+		if hm, ok := response.Data["has_more"].(bool); ok {
 			hasMore = hm
 		}
 
