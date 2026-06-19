@@ -42,7 +42,7 @@ import (
 )
 
 // VERSION is the current version of the SDK.
-const VERSION = "2.0.0"
+const VERSION = "2.0.1"
 
 // Client represents the Generator Labs API client and provides access to
 // RBL monitoring, contact management, and certificate monitoring operations.

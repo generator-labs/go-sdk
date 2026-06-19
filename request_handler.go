@@ -36,16 +36,18 @@ type RequestHandler struct {
 	client     *retryablehttp.Client
 }
 
-// APIError represents an error response from the API.
+// APIError represents a structured error response from the API.
 //
-// The API returns structured error responses with success=false and
-// an error object containing the error message and details.
+// The API returns errors as a JSON body with a status_code (which mirrors the
+// HTTP status code) and a status_message describing the problem.
 type APIError struct {
-	Success bool `json:"success"`
-	Error   struct {
-		Message string `json:"message"`
-	} `json:"error"`
-	Message string `json:"message"`
+	StatusCode    int    `json:"status_code"`
+	StatusMessage string `json:"status_message"`
+}
+
+// Error implements the error interface.
+func (e *APIError) Error() string {
+	return fmt.Sprintf("API error %d: %s", e.StatusCode, e.StatusMessage)
 }
 
 // NewRequestHandler creates a new request handler with retry logic.
@@ -206,30 +208,22 @@ func (h *RequestHandler) makeRequest(method, path string, params map[string]inte
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 
-	// Check for API error in response
-	if success, ok := data["success"].(bool); ok && !success {
-		errMsg := "Unknown error"
-		if errorData, ok := data["error"].(map[string]interface{}); ok {
-			if msg, ok := errorData["message"].(string); ok {
-				errMsg = msg
-			}
-		} else if msg, ok := data["message"].(string); ok {
-			errMsg = msg
-		}
-		return nil, fmt.Errorf("API error: %s", errMsg)
+	// Determine success vs failure from the API status_code (which mirrors the
+	// HTTP status code), and surface the API status_message.
+	apiCode := 0
+	if v, ok := data["status_code"].(float64); ok {
+		apiCode = int(v)
 	}
-
-	// Check HTTP status code
-	if resp.StatusCode >= 400 {
-		errMsg := fmt.Sprintf("HTTP %d error", resp.StatusCode)
-		if errorData, ok := data["error"].(map[string]interface{}); ok {
-			if msg, ok := errorData["message"].(string); ok {
-				errMsg = msg
-			}
-		} else if msg, ok := data["message"].(string); ok {
-			errMsg = msg
+	if resp.StatusCode >= 400 || apiCode >= 400 {
+		code := apiCode
+		if code == 0 {
+			code = resp.StatusCode
 		}
-		return nil, fmt.Errorf("API error: %s", errMsg)
+		msg, _ := data["status_message"].(string)
+		if msg == "" {
+			msg = fmt.Sprintf("HTTP %d error", resp.StatusCode)
+		}
+		return nil, &APIError{StatusCode: code, StatusMessage: msg}
 	}
 
 	// Parse rate limit headers

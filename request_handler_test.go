@@ -9,6 +9,7 @@ package generatorlabs
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -88,6 +89,59 @@ func TestArrayParamsConvertedToCommaSeparated(t *testing.T) {
 			t.Errorf("Expected contact_group as single string, got body: %s", capturedBody)
 		}
 	})
+}
+
+// TestErrorResponseSurfacesStatusMessage verifies that 4xx responses are returned
+// as a typed *APIError carrying the API status_code and status_message.
+func TestErrorResponseSurfacesStatusMessage(t *testing.T) {
+	cases := []struct {
+		status int
+		msg    string
+	}{
+		{400, "Invalid host id provided."},
+		{404, "Not found."},
+		{422, "Validation failed."},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.msg, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tc.status)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"status_code":    tc.status,
+					"status_message": tc.msg,
+				})
+			}))
+			defer server.Close()
+
+			client, err := New(
+				"AC0123456789abcdef0123456789abcdef",
+				"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+				&Config{BaseURL: server.URL + "/"},
+			)
+			if err != nil {
+				t.Fatalf("Failed to create client: %v", err)
+			}
+
+			_, err = client.RBL().Hosts().Get("HT11111111111111111111111111111111")
+			if err == nil {
+				t.Fatalf("expected an error for HTTP %d, got nil", tc.status)
+			}
+
+			var apiErr *APIError
+			if !errors.As(err, &apiErr) {
+				t.Fatalf("expected *APIError, got %T: %v", err, err)
+			}
+			if apiErr.StatusCode != tc.status {
+				t.Errorf("StatusCode = %d, want %d", apiErr.StatusCode, tc.status)
+			}
+			if apiErr.StatusMessage != tc.msg {
+				t.Errorf("StatusMessage = %q, want %q", apiErr.StatusMessage, tc.msg)
+			}
+		})
+	}
 }
 
 // containsParam checks if a URL-encoded body contains a specific key=value pair.

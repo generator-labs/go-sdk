@@ -34,14 +34,14 @@ func main() {
 	_, err = client.RBL().Hosts().Get("999999")
 	if err != nil {
 		fmt.Printf("Caught error: %v\n", err)
-		fmt.Println("This is expected for a non-existent resource\n")
+		fmt.Println("This is expected for a non-existent resource")
 	}
 
 	fmt.Println("=== Example 2: Invalid credentials ===")
 	_, err = generatorlabs.New("INVALID", authToken)
 	if err != nil {
 		fmt.Printf("Caught error: %v\n", err)
-		fmt.Println("Credential validation works!\n")
+		fmt.Println("Credential validation works!")
 	}
 
 	fmt.Println("=== Example 3: Network resilience ===")
