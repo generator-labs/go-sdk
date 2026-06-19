@@ -599,6 +599,9 @@ For security best practices and vulnerability reporting, see [SECURITY.md](SECUR
 
 ## Release History
 
+### v2.0.1 (2026-06-19)
+* Error responses now return a typed `*APIError` (`StatusCode` / `StatusMessage`), detected from `status_code` (or HTTP status) of 400 or greater
+
 ### v2.0.0 (2026-01-31)
 * Complete rewrite for Generator Labs API v4.0
 * RESTful endpoint design with proper HTTP verbs
