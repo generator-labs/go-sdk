@@ -1,6 +1,6 @@
 # Generator Labs Go SDK
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/generator-labs/go-sdk.svg)](https://pkg.go.dev/github.com/generator-labs/go-sdk)
+[![Go Reference](https://pkg.go.dev/badge/github.com/generator-labs/go-sdk/v2.svg)](https://pkg.go.dev/github.com/generator-labs/go-sdk/v2)
 [![Go Report Card](https://goreportcard.com/badge/github.com/generator-labs/go-sdk)](https://goreportcard.com/report/github.com/generator-labs/go-sdk)
 [![Tests](https://github.com/generator-labs/go-sdk/workflows/Tests/badge.svg)](https://github.com/generator-labs/go-sdk/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -17,8 +17,10 @@ Official Go SDK for the [Generator Labs API](https://generatorlabs.com). This li
   - [Client Initialization](#client-initialization)
   - [Configuration Options](#configuration-options)
   - [Pagination](#pagination)
+  - [Request Options](#request-options)
+  - [Account](#account)
   - [RBL Monitoring](#rbl-monitoring) - [Hosts](#hosts) | [Profiles](#profiles) | [Sources](#sources) | [Check & Listings](#check--listings)
-  - [Certificate Monitoring](#certificate-monitoring) - [Errors](#errors) | [Monitors](#monitors) | [Profiles](#profiles-1)
+  - [Certificate Monitoring](#certificate-monitoring) - [Errors](#errors) | [Monitors](#monitors) | [Findings](#findings) | [Profiles](#profiles-1)
   - [Contact Management](#contact-management) - [Contacts](#contacts) | [Groups](#groups)
 - [Error Handling](#error-handling)
 - [Retry Logic](#retry-logic)
@@ -46,8 +48,10 @@ Official Go SDK for the [Generator Labs API](https://generatorlabs.com). This li
 ## Installation
 
 ```bash
-go get github.com/generator-labs/go-sdk
+go get github.com/generator-labs/go-sdk/v2
 ```
+
+The module path ends in `/v2`. If you installed the SDK as `github.com/generator-labs/go-sdk`, run the command above and change your import to `github.com/generator-labs/go-sdk/v2`. The package name is still `generatorlabs`.
 
 ## Quick Start
 
@@ -59,7 +63,7 @@ import (
     "log"
     "time"
 
-    generatorlabs "github.com/generator-labs/go-sdk"
+    generatorlabs "github.com/generator-labs/go-sdk/v2"
 )
 
 func main() {
@@ -119,7 +123,7 @@ func main() {
 The SDK includes a helper for verifying incoming webhook signatures. Each webhook is assigned a signing secret (available in the Portal), which is used to compute an HMAC-SHA256 signature sent with every request in the `X-Webhook-Signature` header.
 
 ```go
-import generatorlabs "github.com/generator-labs/go-sdk"
+import generatorlabs "github.com/generator-labs/go-sdk/v2"
 
 header := r.Header.Get("X-Webhook-Signature")
 body, _ := io.ReadAll(r.Body)
@@ -192,6 +196,68 @@ allContacts, err := client.Contact().Contacts().GetAll(nil)
 allGroups, err := client.Contact().Groups().GetAll(nil)
 ```
 
+### Request Options
+
+Every resource method takes request options as its last arguments: `WithIdempotencyKey`, `WithRequestID`, `WithIfNoneMatch` and `WithFields`.
+
+**Idempotency keys.** Requests that create something (`Create`), a contact `Resend` or `Confirm`, the certificate monitor `Delete`, and the two check requests (`RBL().Check().Start`, `Cert().Monitors().Check`) are sent with an `Idempotency-Key` header. The SDK generates one key per call and sends the same key on every automatic retry of that call, so a retry after a timeout never creates, sends, bills or deletes anything twice. Pass your own key to make a repeat of the call from your code safe as well:
+
+```go
+host, err := client.RBL().Hosts().Create(params, generatorlabs.WithIdempotencyKey("b0e1f6a2-4d7c-4b43-9d3c-3f1c5a9f2e11"))
+
+// true when the API answered with the result of an earlier request with the same key
+fmt.Println(host.Replayed)
+```
+
+The same key with a different request is refused with a 422.
+
+**Request IDs.** Every response carries an `X-Request-Id`, available as `RequestID` on the response and on `*generatorlabs.APIError`. Quote it when you contact support about a request. You can also send your own (1 to 64 letters, digits, `-`, `_`, `.` or `:`):
+
+```go
+hosts, err := client.RBL().Hosts().Get(generatorlabs.WithRequestID("my-request-1"))
+
+var apiErr *generatorlabs.APIError
+if errors.As(err, &apiErr) {
+    log.Printf("%d %s", apiErr.StatusCode, apiErr.RequestID)
+}
+```
+
+**Conditional requests.** Every `GET` response carries an `ETag`. Send it back with `WithIfNoneMatch`: when nothing has changed the API answers `304 Not Modified`, and the response has `NotModified` set and no data.
+
+```go
+hosts, err := client.RBL().Hosts().Get()
+
+later, err := client.RBL().Hosts().Get(generatorlabs.WithIfNoneMatch(hosts.ETag))
+if err == nil && !later.NotModified {
+    hosts = later
+}
+```
+
+**Field selection.** Any `GET` takes `WithFields` to keep only those keys in each object of `data`. A nested key is written with a dot. A field no object has is refused with a 422.
+
+```go
+host, err := client.RBL().Hosts().Get("HT1a2b3c4d5e6f7890abcdef1234567890", generatorlabs.WithFields("id", "host", "listed"))
+
+hosts, err := client.RBL().Hosts().Get(map[string]interface{}{"page_size": 50}, generatorlabs.WithFields("id", "host"))
+```
+
+### Account
+
+```go
+// The account: balance, whether scheduled checks are running, and plan usage
+account, err := client.Account().Get()
+
+// The account balance, as a float64
+balance, err := client.Account().Balance()
+
+// Usage by month, for the last 3 months
+usage, err := client.Account().Usage(map[string]interface{}{"months": 3})
+
+// Pause and resume the account's scheduled checks
+result, err := client.Account().PauseChecks()
+result, err := client.Account().ResumeChecks()
+```
+
 ### RBL Monitoring
 
 #### Hosts
@@ -202,9 +268,6 @@ hosts, err := client.RBL().Hosts().Get()
 
 // Get a specific host
 host, err := client.RBL().Hosts().Get("HT1a2b3c4d5e6f7890abcdef1234567890")
-
-// Get multiple hosts
-hosts, err := client.RBL().Hosts().Get("HT1a2b3c4d5e6f7890abcdef1234567890", "HT2b3c4d5e6f7890abcdef12345678901a")
 
 // Create a host
 params := map[string]interface{}{
@@ -304,6 +367,9 @@ status, err := client.RBL().Check().Status("check_id")
 
 // Get current listings
 listings, err := client.RBL().Listings()
+
+// Get the second page of listings
+listings, err := client.RBL().Listings(map[string]interface{}{"page": 2})
 ```
 
 ### Certificate Monitoring
@@ -321,6 +387,14 @@ if err != nil {
 
 // Get a specific error
 error, err := client.Cert().Errors().Get("CE5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+```go
+// The number of current certificate warnings and errors
+count, err := client.Cert().Errors().Count()
 if err != nil {
     log.Fatal(err)
 }
@@ -385,6 +459,35 @@ result, err := client.Cert().Monitors().Resume("CM62944aeeee2b46d7a28221164f3897
 if err != nil {
     log.Fatal(err)
 }
+
+// Queue a check now, instead of waiting for the next scheduled check
+result, err := client.Cert().Monitors().Check("CM62944aeeee2b46d7a28221164f38976a")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+#### Findings
+
+Findings are everything the last check of each active monitor found: errors, warnings and notices, whatever the profile's alert settings. Some findings can be dismissed, and restored later.
+
+```go
+// List the current findings, one entry per monitor
+findings, err := client.Cert().Findings().Get()
+
+// Include the findings dismissed from each monitor
+findings, err := client.Cert().Findings().Get(map[string]interface{}{"dismissed": 1})
+
+// Dismiss findings on named monitors (leave "monitors" out for every monitor that has them)
+result, err := client.Cert().Findings().Dismiss(map[string]interface{}{
+    "finding_id": []string{"CERT_CAA01", "CERT_CAA02"},
+    "monitors":   []string{"CM62944aeeee2b46d7a28221164f38976a"},
+})
+
+// Restore dismissed findings
+result, err := client.Cert().Findings().Restore(map[string]interface{}{
+    "finding_id": "CERT_CAA01",
+})
 ```
 
 #### Profiles
@@ -444,9 +547,6 @@ contacts, err := client.Contact().Contacts().Get()
 
 // Get a specific contact
 contact, err := client.Contact().Contacts().Get("COabcdef1234567890abcdef1234567890")
-
-// Get multiple contacts
-contacts, err := client.Contact().Contacts().Get("COabcdef1234567890abcdef1234567890", "CO1234567890abcdef1234567890abcdef")
 
 // Create a contact
 params := map[string]interface{}{
@@ -517,6 +617,7 @@ The SDK automatically retries failed requests with exponential backoff:
 - Configurable maximum retry attempts (default: 3)
 - Retries on connection errors, 5xx server errors, and 429 rate limits
 - Respects `Retry-After` header on 429 responses before falling back to exponential backoff
+- A `Retry-After` longer than 60 seconds is not waited out: the 429 is returned as the error instead
 - Configurable exponential backoff multiplier (default: 1.0 for 1s, 2s, 4s delays)
 - Configurable request timeout (default: 30 seconds)
 
@@ -598,6 +699,17 @@ go test -v
 For security best practices and vulnerability reporting, see [SECURITY.md](SECURITY.md).
 
 ## Release History
+
+### v2.1.0 (2026-11-19)
+* The module path is now `github.com/generator-labs/go-sdk/v2`: install with `go get github.com/generator-labs/go-sdk/v2` and change the import path to match
+* Added `client.Account()` (account, balance, usage, pause and resume scheduled checks)
+* Added `Cert().Findings()` (list, dismiss, restore), `Cert().Monitors().Check()` and `Cert().Errors().Count()`
+* Added request options: `WithIdempotencyKey`, `WithRequestID`, `WithIfNoneMatch` and `WithFields`
+* Automatic `Idempotency-Key` on requests that create something or start a check, reused on every retry
+* `Response` exposes `RequestID`, `ETag`, `Replayed` and `NotModified`; `APIError` carries the `RequestID`
+* A `Retry-After` longer than 60 seconds is returned as the error, not waited out
+* Fixed `GetAll` returning an empty list, the first retry not waiting, and the error returned when retries run out
+* `Get` takes a single ID; the form with several IDs is removed
 
 ### v2.0.1 (2026-06-19)
 * Error responses now return a typed `*APIError` (`StatusCode` / `StatusMessage`), detected from `status_code` (or HTTP status) of 400 or greater

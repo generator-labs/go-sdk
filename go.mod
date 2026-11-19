@@ -1,4 +1,4 @@
-module github.com/generator-labs/go-sdk
+module github.com/generator-labs/go-sdk/v2
 
 go 1.21
 

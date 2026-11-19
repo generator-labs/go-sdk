@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	generatorlabs "github.com/generator-labs/go-sdk"
+	generatorlabs "github.com/generator-labs/go-sdk/v2"
 )
 
 func main() {

@@ -1,16 +1,28 @@
+version: "2"
+
 run:
   # Timeout for analysis
   timeout: 5m
 
 linters:
+  # standard = errcheck, govet, ineffassign, staticcheck (now includes gosimple), unused
+  default: standard
+  exclusions:
+    # Keep the v1 default exclusions
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - (^|/)third_party($|/)
+      - (^|/)builtin($|/)
+      - (^|/)examples($|/)
+
+formatters:
   enable:
     - gofmt
-    - govet
-    - errcheck
-    - staticcheck
-    - unused
-    - gosimple
-    - ineffassign
 
 issues:
   # Maximum issues count per one linter

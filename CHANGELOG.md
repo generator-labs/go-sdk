@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0]
+
+### Changed
+- The module path is now `github.com/generator-labs/go-sdk/v2`, as Go requires for a v2 module.
+  Install with `go get github.com/generator-labs/go-sdk/v2` and change the import path to match;
+  the package name is still `generatorlabs`. The `v2.0.x` tags could not be installed by version.
+- A `Retry-After` longer than 60 seconds (`MaxRetryAfter`) is not waited out: the 429 is returned
+  as the error.
+- `Get` takes a single ID. The form with several IDs is removed and returns an error: it sent an
+  `ids` parameter the API does not have.
+
+### Added
+- `client.Account()`: `Get`, `Balance`, `Usage`, `PauseChecks` and `ResumeChecks`.
+- `client.Cert().Findings()`: `Get`, `GetAll`, `Dismiss` and `Restore`.
+- `client.Cert().Monitors().Check(id)` queues a check now, and `client.Cert().Errors().Count()`
+  returns the number of current certificate errors.
+- Request options on every method: `WithIdempotencyKey`, `WithRequestID`, `WithIfNoneMatch` and
+  `WithFields`.
+- An `Idempotency-Key` is sent automatically on requests that create something or start a check
+  (creates, contact resend and confirm, certificate monitor delete, RBL check start, certificate
+  check now). It is generated once per call and reused on every retry, so a retried request is not
+  applied twice. A key you pass yourself is used instead.
+- `Response` exposes `RequestID`, `ETag`, `Replayed` and `NotModified`, and `APIError` carries the
+  `RequestID`. A 304 answer to `WithIfNoneMatch` is a normal response with `NotModified` set.
+- `client.RBL().Listings()` accepts query parameters, for paging.
+
+### Fixed
+- `GetAll` returned an empty list for every resource: it read the wrong key of the response.
+- The first retry now waits for `Retry-After` when the API sends it, and 1 second otherwise. It
+  was sent at once.
+- When the retries run out, the API's own error is returned as an `*APIError`, in place of
+  "giving up after N attempt(s)".
+
 ## [2.0.1]
 
 ### Changed

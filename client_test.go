@@ -102,7 +102,7 @@ func TestClientNamespaces(t *testing.T) {
 }
 
 func TestVersion(t *testing.T) {
-	if VERSION != "2.0.1" {
-		t.Errorf("VERSION = %s, want 2.0.1", VERSION)
+	if VERSION != "2.1.0" {
+		t.Errorf("VERSION = %s, want 2.1.0", VERSION)
 	}
 }

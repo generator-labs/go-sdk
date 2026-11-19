@@ -9,6 +9,8 @@ package generatorlabs
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,6 +38,101 @@ type RequestHandler struct {
 	client     *retryablehttp.Client
 }
 
+// MaxRetryAfter is the longest Retry-After (in seconds) that is waited out before a
+// retry. A longer wait is not slept: the response is returned as the error instead.
+const MaxRetryAfter = 60
+
+// requestOptions holds the options of one request.
+type requestOptions struct {
+	idempotencyKey string
+	requestID      string
+	ifNoneMatch    string
+	fields         string
+	idempotent     bool
+}
+
+// RequestOption sets an option of one request. Options are passed as the last
+// arguments of a resource method.
+//
+// Example:
+//
+//	host, err := client.RBL().Hosts().Get("HTxxxxxxxx", generatorlabs.WithFields("id", "host"))
+type RequestOption func(*requestOptions)
+
+// WithIdempotencyKey sets the Idempotency-Key of a request that creates something or
+// starts a check. A repeat with the same key returns the first answer. One is generated
+// when this option is left out.
+func WithIdempotencyKey(key string) RequestOption {
+	return func(o *requestOptions) {
+		o.idempotencyKey = key
+	}
+}
+
+// WithRequestID sets the X-Request-Id to send; the API generates one otherwise.
+func WithRequestID(id string) RequestOption {
+	return func(o *requestOptions) {
+		o.requestID = id
+	}
+}
+
+// WithIfNoneMatch sends the ETag of an earlier response; the answer has NotModified set
+// when nothing changed.
+func WithIfNoneMatch(etag string) RequestOption {
+	return func(o *requestOptions) {
+		o.ifNoneMatch = etag
+	}
+}
+
+// WithFields selects the keys to keep in each object of the response data (GET requests).
+func WithFields(fields ...string) RequestOption {
+	return func(o *requestOptions) {
+		o.fields = strings.Join(fields, ",")
+	}
+}
+
+// idempotent marks a request to an endpoint that accepts an Idempotency-Key, so one is
+// generated when the caller gave none.
+func idempotent(o *requestOptions) {
+	o.idempotent = true
+}
+
+// requestArgs sorts the variadic arguments of a Get call: an id or a map of query
+// parameters, followed by any request options.
+func requestArgs(args []interface{}) (interface{}, map[string]interface{}, []RequestOption, error) {
+	var id interface{}
+	var params map[string]interface{}
+	var opts []RequestOption
+
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case RequestOption:
+			opts = append(opts, v)
+		case map[string]interface{}:
+			params = v
+		default:
+			if id != nil {
+				return nil, nil, nil, fmt.Errorf("only one id can be requested at a time")
+			}
+			id = v
+		}
+	}
+
+	return id, params, opts, nil
+}
+
+// getResource lists a resource, or retrieves one of them by id.
+func (h *RequestHandler) getResource(path string, args []interface{}) (*Response, error) {
+	id, params, opts, err := requestArgs(args)
+	if err != nil {
+		return nil, err
+	}
+
+	if id != nil {
+		return h.Get(fmt.Sprintf("%s/%v", path, id), nil, opts...)
+	}
+	return h.Get(path, params, opts...)
+}
+
 // APIError represents a structured error response from the API.
 //
 // The API returns errors as a JSON body with a status_code (which mirrors the
@@ -43,6 +140,8 @@ type RequestHandler struct {
 type APIError struct {
 	StatusCode    int    `json:"status_code"`
 	StatusMessage string `json:"status_message"`
+	// RequestID is the X-Request-Id of the failed request; quote it when contacting support
+	RequestID string `json:"-"`
 }
 
 // Error implements the error interface.
@@ -74,20 +173,19 @@ func NewRequestHandler(accountSID, authToken string, config *Config) *RequestHan
 			return true, err
 		}
 
-		// Retry on 5xx server errors and 429 rate limit
+		// Retry on 5xx server errors and 429 rate limit, unless the Retry-After header asks
+		// for a longer wait than MaxRetryAfter: that response is returned as the error
 		if resp.StatusCode >= 500 || resp.StatusCode == 429 {
-			return true, nil
+			seconds, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
+			return seconds <= MaxRetryAfter, nil
 		}
 
 		return false, nil
 	}
 
-	// Respect Retry-After header; fall back to exponential backoff
+	// Respect Retry-After header; fall back to exponential backoff. attemptNum counts the
+	// requests already made less one, so it is 0 for the wait before the first retry.
 	client.Backoff = func(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration {
-		if attemptNum == 0 {
-			return 0
-		}
-
 		// Use Retry-After header when present (rate limit responses)
 		if resp != nil {
 			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
@@ -98,12 +196,16 @@ func NewRequestHandler(accountSID, authToken string, config *Config) *RequestHan
 		}
 
 		// Exponential backoff with configurable multiplier
-		backoff := time.Duration(math.Pow(config.RetryBackoff, float64(attemptNum-1))) * time.Second
+		backoff := time.Duration(math.Pow(config.RetryBackoff, float64(attemptNum))) * time.Second
 		if backoff > max {
 			return max
 		}
 		return backoff
 	}
+
+	// When the retries run out, return the last response (or the connection error) as it
+	// is, so the caller gets the API's own status code and message
+	client.ErrorHandler = retryablehttp.PassthroughErrorHandler
 
 	// Disable default retry logging
 	client.Logger = nil
@@ -117,29 +219,36 @@ func NewRequestHandler(accountSID, authToken string, config *Config) *RequestHan
 	}
 }
 
-// makeRequest performs an HTTP request to the API with automatic retries.
+// send performs an HTTP request to the API with automatic retries, and returns the
+// response with its body read.
 //
 // This method handles:
 //   - Building the request URL with .json extension
 //   - Adding query parameters for GET requests
 //   - Adding form data for POST/PUT/DELETE requests
-//   - Setting authentication headers
+//   - Setting authentication and request option headers
 //   - Executing the request with retry logic
-//   - Parsing JSON responses
-//   - Checking for API errors in the response
-//
-// Errors are returned if:
-//   - The request cannot be created
-//   - All retry attempts fail
-//   - The response body cannot be read or parsed
-//   - The API returns success=false in the response
-//   - The HTTP status code is >= 400
-func (h *RequestHandler) makeRequest(method, path string, params map[string]interface{}) (*Response, error) {
+func (h *RequestHandler) send(method, path string, params map[string]interface{}, opts []RequestOption) (*http.Response, []byte, error) {
 	apiURL := fmt.Sprintf("%s%s.json", h.baseURL, path)
+
+	options := &requestOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	// Field selection applies to GET requests
+	if method == "GET" && options.fields != "" {
+		query := map[string]interface{}{"fields": options.fields}
+		for key, value := range params {
+			query[key] = value
+		}
+		params = query
+	}
 
 	var req *retryablehttp.Request
 	var err error
 
+	// Build request based on method
 	if method == "GET" && params != nil {
 		// Add query parameters
 		queryParams := url.Values{}
@@ -149,7 +258,7 @@ func (h *RequestHandler) makeRequest(method, path string, params map[string]inte
 		apiURL = fmt.Sprintf("%s?%s", apiURL, queryParams.Encode())
 		req, err = retryablehttp.NewRequest(method, apiURL, nil)
 	} else if (method == "POST" || method == "PUT" || method == "DELETE") && params != nil {
-		// Add form parameters
+		// Add form data
 		formData := url.Values{}
 		for key, value := range params {
 			switch v := value.(type) {
@@ -174,56 +283,61 @@ func (h *RequestHandler) makeRequest(method, path string, params map[string]inte
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set headers
 	req.Header.Set("User-Agent", fmt.Sprintf("GeneratorLabs-Go/%s", VERSION))
 	req.Header.Set("Accept", "application/json")
 
-	// Set basic auth
+	// The headers are set once per call, so every retry of the call sends the same
+	// Idempotency-Key and the API answers a repeat with the first result
+	if options.idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", options.idempotencyKey)
+	} else if options.idempotent {
+		key := make([]byte, 16)
+		if _, err := rand.Read(key); err != nil {
+			return nil, nil, fmt.Errorf("failed to generate an idempotency key: %w", err)
+		}
+		req.Header.Set("Idempotency-Key", hex.EncodeToString(key))
+	}
+	if options.requestID != "" {
+		req.Header.Set("X-Request-Id", options.requestID)
+	}
+	if options.ifNoneMatch != "" {
+		req.Header.Set("If-None-Match", options.ifNoneMatch)
+	}
+
+	// Set authentication
 	req.SetBasicAuth(h.accountSID, h.authToken)
 
-	// Execute request
+	// Execute request with retry logic
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
+		return nil, nil, fmt.Errorf("API request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// Check for empty response
-	if len(body) == 0 {
-		return nil, fmt.Errorf("empty response from API")
-	}
+	return resp, body, nil
+}
 
-	// Parse JSON response
-	var data map[string]interface{}
-	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
-	}
-
-	// Determine success vs failure from the API status_code (which mirrors the
-	// HTTP status code), and surface the API status_message.
-	apiCode := 0
-	if v, ok := data["status_code"].(float64); ok {
-		apiCode = int(v)
-	}
-	if resp.StatusCode >= 400 || apiCode >= 400 {
-		code := apiCode
-		if code == 0 {
-			code = resp.StatusCode
-		}
-		msg, _ := data["status_message"].(string)
-		if msg == "" {
-			msg = fmt.Sprintf("HTTP %d error", resp.StatusCode)
-		}
-		return nil, &APIError{StatusCode: code, StatusMessage: msg}
+// makeRequest performs an HTTP request to the API and parses the JSON response.
+//
+// Errors are returned if:
+//   - The request cannot be created
+//   - All retry attempts fail
+//   - The response body cannot be read or parsed
+//   - The HTTP status code or the API status_code is >= 400
+func (h *RequestHandler) makeRequest(method, path string, params map[string]interface{}, opts []RequestOption) (*Response, error) {
+	resp, body, err := h.send(method, path, params, opts)
+	if err != nil {
+		return nil, err
 	}
 
 	// Parse rate limit headers
@@ -238,7 +352,49 @@ func (h *RequestHandler) makeRequest(method, path string, params map[string]inte
 		}
 	}
 
-	return &Response{Data: data, RateLimit: rateLimit}, nil
+	response := &Response{
+		RateLimit: rateLimit,
+		RequestID: resp.Header.Get("X-Request-Id"),
+		ETag:      resp.Header.Get("ETag"),
+		Replayed:  resp.Header.Get("Idempotent-Replayed") == "true",
+	}
+
+	// 304 Not Modified has no body: the copy the caller's ETag came from is still current
+	if resp.StatusCode == http.StatusNotModified {
+		response.Data = map[string]interface{}{}
+		response.NotModified = true
+		return response, nil
+	}
+
+	// Check for empty response
+	if len(body) == 0 {
+		return nil, fmt.Errorf("empty response from API")
+	}
+
+	// Parse JSON response
+	if err := json.Unmarshal(body, &response.Data); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
+	}
+
+	// Determine success vs failure from the API status_code (which mirrors the HTTP status),
+	// and surface the API status_message.
+	apiCode := 0
+	if v, ok := response.Data["status_code"].(float64); ok {
+		apiCode = int(v)
+	}
+	if resp.StatusCode >= 400 || apiCode >= 400 {
+		code := apiCode
+		if code == 0 {
+			code = resp.StatusCode
+		}
+		msg, _ := response.Data["status_message"].(string)
+		if msg == "" {
+			msg = fmt.Sprintf("HTTP %d error", resp.StatusCode)
+		}
+		return nil, &APIError{StatusCode: code, StatusMessage: msg, RequestID: response.RequestID}
+	}
+
+	return response, nil
 }
 
 // Get performs a GET request to the API.
@@ -249,8 +405,29 @@ func (h *RequestHandler) makeRequest(method, path string, params map[string]inte
 // Example:
 //
 //	response, err := handler.Get("rbl/hosts", map[string]interface{}{"status": "active"})
-func (h *RequestHandler) Get(path string, params map[string]interface{}) (*Response, error) {
-	return h.makeRequest("GET", path, params)
+func (h *RequestHandler) Get(path string, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return h.makeRequest("GET", path, params, opts)
+}
+
+// GetPlain performs a GET request to an endpoint that answers in plain text, and
+// returns the body.
+//
+// An error is returned when the HTTP status code is >= 400.
+func (h *RequestHandler) GetPlain(path string, opts ...RequestOption) (string, error) {
+	resp, body, err := h.send("GET", path, nil, opts)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode >= 400 {
+		return "", &APIError{
+			StatusCode:    resp.StatusCode,
+			StatusMessage: fmt.Sprintf("HTTP %d error", resp.StatusCode),
+			RequestID:     resp.Header.Get("X-Request-Id"),
+		}
+	}
+
+	return strings.TrimSpace(string(body)), nil
 }
 
 // Post performs a POST request to the API.
@@ -261,8 +438,8 @@ func (h *RequestHandler) Get(path string, params map[string]interface{}) (*Respo
 // Example:
 //
 //	response, err := handler.Post("rbl/hosts", map[string]interface{}{"name": "My Host", "host": "1.2.3.4"})
-func (h *RequestHandler) Post(path string, params map[string]interface{}) (*Response, error) {
-	return h.makeRequest("POST", path, params)
+func (h *RequestHandler) Post(path string, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return h.makeRequest("POST", path, params, opts)
 }
 
 // Put performs a PUT request to the API.
@@ -273,8 +450,8 @@ func (h *RequestHandler) Post(path string, params map[string]interface{}) (*Resp
 // Example:
 //
 //	response, err := handler.Put("rbl/hosts/HTxxxxxxxx", map[string]interface{}{"name": "Updated Name"})
-func (h *RequestHandler) Put(path string, params map[string]interface{}) (*Response, error) {
-	return h.makeRequest("PUT", path, params)
+func (h *RequestHandler) Put(path string, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return h.makeRequest("PUT", path, params, opts)
 }
 
 // Delete performs a DELETE request to the API.
@@ -285,6 +462,6 @@ func (h *RequestHandler) Put(path string, params map[string]interface{}) (*Respo
 // Example:
 //
 //	response, err := handler.Delete("rbl/hosts/HTxxxxxxxx")
-func (h *RequestHandler) Delete(path string) (*Response, error) {
-	return h.makeRequest("DELETE", path, nil)
+func (h *RequestHandler) Delete(path string, opts ...RequestOption) (*Response, error) {
+	return h.makeRequest("DELETE", path, nil, opts)
 }

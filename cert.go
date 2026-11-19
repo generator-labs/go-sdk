@@ -7,7 +7,10 @@
 
 package generatorlabs
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // Cert represents the Certificate monitoring API namespace.
 //
@@ -27,6 +30,18 @@ type Cert struct {
 //	errors, err := client.Cert().Errors().Get()
 func (c *Cert) Errors() *CertErrors {
 	return &CertErrors{handler: c.handler}
+}
+
+// Findings returns operations for certificate findings.
+//
+// Use this to list the current findings on the active monitors, and to dismiss or
+// restore the findings that can be dismissed.
+//
+// Example:
+//
+//	findings, err := client.Cert().Findings().Get()
+func (c *Cert) Findings() *CertFindings {
+	return &CertFindings{handler: c.handler}
 }
 
 // Monitors returns operations for managing certificate monitors.
@@ -85,15 +100,22 @@ type CertErrors struct {
 //	errors, err := client.Cert().Errors().Get(map[string]interface{}{
 //	    "monitor_id": "CM62944aeeee2b46d7a28221164f38976a",
 //	})
-func (e *CertErrors) Get(params ...interface{}) (*Response, error) {
-	if len(params) == 0 {
-		return e.handler.Get("cert/errors", nil)
+func (e *CertErrors) Get(args ...interface{}) (*Response, error) {
+	_, params, opts, _ := requestArgs(args)
+	return e.handler.Get("cert/errors", params, opts...)
+}
+
+// Count retrieves the number of current certificate warnings and errors.
+//
+// Example:
+//
+//	count, err := client.Cert().Errors().Count()
+func (e *CertErrors) Count(opts ...RequestOption) (int, error) {
+	body, err := e.handler.GetPlain("cert/errors/count", opts...)
+	if err != nil {
+		return 0, err
 	}
-	// Check if it's a map[string]interface{} (parameters)
-	if p, ok := params[0].(map[string]interface{}); ok {
-		return e.handler.Get("cert/errors", p)
-	}
-	return e.handler.Get("cert/errors", nil)
+	return strconv.Atoi(body)
 }
 
 // GetAll retrieves all certificate errors with automatic pagination.
@@ -122,7 +144,7 @@ func (e *CertErrors) GetAll(params map[string]interface{}) ([]interface{}, error
 
 		// Extract errors from response
 		errors := []interface{}{}
-		if errorList, ok := response.Data["errors"].([]interface{}); ok {
+		if errorList, ok := response.Data["data"].([]interface{}); ok {
 			errors = errorList
 		}
 
@@ -144,6 +166,112 @@ func (e *CertErrors) GetAll(params map[string]interface{}) ([]interface{}, error
 	return allItems, nil
 }
 
+// CertFindings handles certificate finding operations.
+//
+// Findings are everything the last check of each active monitor found: errors,
+// warnings and notices, whatever the profile's alert settings. Some findings can be
+// dismissed, and restored later.
+type CertFindings struct {
+	handler *RequestHandler
+}
+
+// Get retrieves the current findings on the active certificate monitors, one entry per
+// monitor.
+//
+// The params map supports:
+//   - dismissed: Set to 1 to also list the findings dismissed from each monitor
+//   - page: Page number (default: 1)
+//   - page_size: Results per page
+//
+// Example:
+//
+//	findings, err := client.Cert().Findings().Get()
+//
+//	// Dismissed findings included
+//	findings, err := client.Cert().Findings().Get(map[string]interface{}{"dismissed": 1})
+func (f *CertFindings) Get(args ...interface{}) (*Response, error) {
+	_, params, opts, _ := requestArgs(args)
+	return f.handler.Get("cert/findings", params, opts...)
+}
+
+// GetAll retrieves the findings of every monitor with automatic pagination.
+//
+// Example:
+//
+//	findings, err := client.Cert().Findings().GetAll(nil)
+func (f *CertFindings) GetAll(params map[string]interface{}) ([]interface{}, error) {
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+
+	allItems := []interface{}{}
+	page := 1
+
+	for {
+		params["page"] = page
+		response, err := f.Get(params)
+		if err != nil {
+			return nil, err
+		}
+
+		// Extract monitors from response
+		monitors := []interface{}{}
+		if monitorList, ok := response.Data["data"].([]interface{}); ok {
+			monitors = monitorList
+		}
+
+		allItems = append(allItems, monitors...)
+
+		// Check if there are more pages
+		totalPages := 1.0
+		if tp, ok := response.Data["total_pages"].(float64); ok {
+			totalPages = tp
+		}
+
+		if float64(page) >= totalPages || len(monitors) == 0 {
+			break
+		}
+
+		page++
+	}
+
+	return allItems, nil
+}
+
+// Dismiss dismisses findings.
+//
+// Required parameters:
+//   - finding_id: The finding key to dismiss, or a slice of them
+//
+// Optional parameters:
+//   - monitors: Slice of monitor SIDs; without it, every active monitor that has the finding
+//
+// Example:
+//
+//	result, err := client.Cert().Findings().Dismiss(map[string]interface{}{
+//	    "finding_id": []string{"CERT_CAA01", "CERT_CAA02"},
+//	})
+func (f *CertFindings) Dismiss(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return f.handler.Post("cert/findings/dismiss", params, opts...)
+}
+
+// Restore restores dismissed findings.
+//
+// Required parameters:
+//   - finding_id: The finding key to restore, or a slice of them
+//
+// Optional parameters:
+//   - monitors: Slice of monitor SIDs; without it, every monitor the finding is dismissed from
+//
+// Example:
+//
+//	result, err := client.Cert().Findings().Restore(map[string]interface{}{
+//	    "finding_id": "CERT_CAA01",
+//	})
+func (f *CertFindings) Restore(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return f.handler.Post("cert/findings/restore", params, opts...)
+}
+
 // CertMonitors handles certificate monitor management operations.
 //
 // Certificate monitors continuously check TLS/SSL certificates on specific
@@ -159,7 +287,7 @@ type CertMonitors struct {
 //   - Get(): Retrieves all monitors (first page)
 //   - Get(map[string]interface{}{"status": "active"}): Retrieves filtered monitors
 //   - Get("CMxxxxxxxxxx"): Retrieves a single monitor by ID
-//   - Get("CMxxxxxxxxxx", "CMyyyyyyyyyy"): Retrieves multiple monitors by IDs
+//   - Get("CMxxxxxxxxxx", WithFields("id")): Any call takes request options last
 //
 // For automatic pagination across all pages, use GetAll() instead.
 //
@@ -182,24 +310,8 @@ type CertMonitors struct {
 //
 //	// Get single monitor
 //	monitor, err := client.Cert().Monitors().Get("CM62944aeeee2b46d7a28221164f38976a")
-func (m *CertMonitors) Get(ids ...interface{}) (*Response, error) {
-	if len(ids) == 0 {
-		return m.handler.Get("cert/monitors", nil)
-	}
-	if len(ids) == 1 {
-		// Check if it's a map[string]interface{} (parameters)
-		if params, ok := ids[0].(map[string]interface{}); ok {
-			return m.handler.Get("cert/monitors", params)
-		}
-		return m.handler.Get(fmt.Sprintf("cert/monitors/%v", ids[0]), nil)
-	}
-	// Multiple IDs - convert to comma-separated string
-	idStr := fmt.Sprintf("%v", ids[0])
-	for i := 1; i < len(ids); i++ {
-		idStr = fmt.Sprintf("%s,%v", idStr, ids[i])
-	}
-	params := map[string]interface{}{"ids": idStr}
-	return m.handler.Get("cert/monitors", params)
+func (m *CertMonitors) Get(args ...interface{}) (*Response, error) {
+	return m.handler.getResource("cert/monitors", args)
 }
 
 // GetAll retrieves all certificate monitors with automatic pagination.
@@ -228,7 +340,7 @@ func (m *CertMonitors) GetAll(params map[string]interface{}) ([]interface{}, err
 
 		// Extract monitors from response
 		monitors := []interface{}{}
-		if monitorList, ok := response.Data["monitors"].([]interface{}); ok {
+		if monitorList, ok := response.Data["data"].([]interface{}); ok {
 			monitors = monitorList
 		}
 
@@ -269,8 +381,8 @@ func (m *CertMonitors) GetAll(params map[string]interface{}) ([]interface{}, err
 //	    "protocol": "https",
 //	    "profile": "CP79b597e61a984a35b5eb7dcdbc3de53c",
 //	})
-func (m *CertMonitors) Create(params map[string]interface{}) (*Response, error) {
-	return m.handler.Post("cert/monitors", params)
+func (m *CertMonitors) Create(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return m.handler.Post("cert/monitors", params, append(opts, idempotent)...)
 }
 
 // Update updates a certificate monitor.
@@ -288,8 +400,8 @@ func (m *CertMonitors) Create(params map[string]interface{}) (*Response, error) 
 //	_, err := client.Cert().Monitors().Update("CM62944aeeee2b46d7a28221164f38976a", map[string]interface{}{
 //	    "name": "Updated Monitor Name",
 //	})
-func (m *CertMonitors) Update(id interface{}, params map[string]interface{}) (*Response, error) {
-	return m.handler.Put(fmt.Sprintf("cert/monitors/%v", id), params)
+func (m *CertMonitors) Update(id interface{}, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return m.handler.Put(fmt.Sprintf("cert/monitors/%v", id), params, opts...)
 }
 
 // Delete deletes a certificate monitor.
@@ -300,8 +412,8 @@ func (m *CertMonitors) Update(id interface{}, params map[string]interface{}) (*R
 // Example:
 //
 //	_, err := client.Cert().Monitors().Delete("CM62944aeeee2b46d7a28221164f38976a")
-func (m *CertMonitors) Delete(id interface{}) (*Response, error) {
-	return m.handler.Delete(fmt.Sprintf("cert/monitors/%v", id))
+func (m *CertMonitors) Delete(id interface{}, opts ...RequestOption) (*Response, error) {
+	return m.handler.Delete(fmt.Sprintf("cert/monitors/%v", id), append(opts, idempotent)...)
 }
 
 // Pause temporarily pauses monitoring for a certificate.
@@ -312,8 +424,8 @@ func (m *CertMonitors) Delete(id interface{}) (*Response, error) {
 // Example:
 //
 //	_, err := client.Cert().Monitors().Pause("CM62944aeeee2b46d7a28221164f38976a")
-func (m *CertMonitors) Pause(id interface{}) (*Response, error) {
-	return m.handler.Post(fmt.Sprintf("cert/monitors/%v/pause", id), nil)
+func (m *CertMonitors) Pause(id interface{}, opts ...RequestOption) (*Response, error) {
+	return m.handler.Post(fmt.Sprintf("cert/monitors/%v/pause", id), nil, opts...)
 }
 
 // Resume resumes monitoring for a paused certificate.
@@ -324,8 +436,17 @@ func (m *CertMonitors) Pause(id interface{}) (*Response, error) {
 // Example:
 //
 //	_, err := client.Cert().Monitors().Resume("CM62944aeeee2b46d7a28221164f38976a")
-func (m *CertMonitors) Resume(id interface{}) (*Response, error) {
-	return m.handler.Post(fmt.Sprintf("cert/monitors/%v/resume", id), nil)
+func (m *CertMonitors) Resume(id interface{}, opts ...RequestOption) (*Response, error) {
+	return m.handler.Post(fmt.Sprintf("cert/monitors/%v/resume", id), nil, opts...)
+}
+
+// Check queues a check of a certificate monitor now.
+//
+// Example:
+//
+//	result, err := client.Cert().Monitors().Check("CM62944aeeee2b46d7a28221164f38976a")
+func (m *CertMonitors) Check(id interface{}, opts ...RequestOption) (*Response, error) {
+	return m.handler.Post(fmt.Sprintf("cert/monitors/%v/check", id), nil, append(opts, idempotent)...)
 }
 
 // CertProfiles handles certificate monitoring profile operations.
@@ -343,7 +464,7 @@ type CertProfiles struct {
 //   - Get(): Retrieves all profiles (first page)
 //   - Get(map[string]interface{}{"page": 2}): Retrieves with pagination
 //   - Get("CPxxxxxxxxxx"): Retrieves a single profile by ID
-//   - Get("CPxxxxxxxxxx", "CPyyyyyyyyyy"): Retrieves multiple profiles by IDs
+//   - Get("CPxxxxxxxxxx", WithFields("id")): Any call takes request options last
 //
 // For automatic pagination across all pages, use GetAll() instead.
 //
@@ -354,24 +475,8 @@ type CertProfiles struct {
 //
 //	// Get single profile
 //	profile, err := client.Cert().Profiles().Get("CP79b597e61a984a35b5eb7dcdbc3de53c")
-func (p *CertProfiles) Get(ids ...interface{}) (*Response, error) {
-	if len(ids) == 0 {
-		return p.handler.Get("cert/profiles", nil)
-	}
-	if len(ids) == 1 {
-		// Check if it's a map[string]interface{} (parameters)
-		if params, ok := ids[0].(map[string]interface{}); ok {
-			return p.handler.Get("cert/profiles", params)
-		}
-		return p.handler.Get(fmt.Sprintf("cert/profiles/%v", ids[0]), nil)
-	}
-	// Multiple IDs
-	idStr := fmt.Sprintf("%v", ids[0])
-	for i := 1; i < len(ids); i++ {
-		idStr = fmt.Sprintf("%s,%v", idStr, ids[i])
-	}
-	params := map[string]interface{}{"ids": idStr}
-	return p.handler.Get("cert/profiles", params)
+func (p *CertProfiles) Get(args ...interface{}) (*Response, error) {
+	return p.handler.getResource("cert/profiles", args)
 }
 
 // GetAll retrieves all certificate monitoring profiles with automatic pagination.
@@ -400,7 +505,7 @@ func (p *CertProfiles) GetAll(params map[string]interface{}) ([]interface{}, err
 
 		// Extract profiles from response
 		profiles := []interface{}{}
-		if profileList, ok := response.Data["profiles"].([]interface{}); ok {
+		if profileList, ok := response.Data["data"].([]interface{}); ok {
 			profiles = profileList
 		}
 
@@ -439,8 +544,8 @@ func (p *CertProfiles) GetAll(params map[string]interface{}) ([]interface{}, err
 //	    "expiration_thresholds": []int{30, 14, 7, 1},
 //	    "alert_on_invalid": true,
 //	})
-func (p *CertProfiles) Create(params map[string]interface{}) (*Response, error) {
-	return p.handler.Post("cert/profiles", params)
+func (p *CertProfiles) Create(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return p.handler.Post("cert/profiles", params, append(opts, idempotent)...)
 }
 
 // Update updates a certificate monitoring profile.
@@ -459,8 +564,8 @@ func (p *CertProfiles) Create(params map[string]interface{}) (*Response, error) 
 //	    "name": "Updated Profile Name",
 //	    "expiration_thresholds": []int{60, 30, 14},
 //	})
-func (p *CertProfiles) Update(id interface{}, params map[string]interface{}) (*Response, error) {
-	return p.handler.Put(fmt.Sprintf("cert/profiles/%v", id), params)
+func (p *CertProfiles) Update(id interface{}, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return p.handler.Put(fmt.Sprintf("cert/profiles/%v", id), params, opts...)
 }
 
 // Delete deletes a certificate monitoring profile.
@@ -471,6 +576,6 @@ func (p *CertProfiles) Update(id interface{}, params map[string]interface{}) (*R
 // Example:
 //
 //	_, err := client.Cert().Profiles().Delete("CP79b597e61a984a35b5eb7dcdbc3de53c")
-func (p *CertProfiles) Delete(id interface{}) (*Response, error) {
-	return p.handler.Delete(fmt.Sprintf("cert/profiles/%v", id))
+func (p *CertProfiles) Delete(id interface{}, opts ...RequestOption) (*Response, error) {
+	return p.handler.Delete(fmt.Sprintf("cert/profiles/%v", id), opts...)
 }

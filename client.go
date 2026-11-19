@@ -42,7 +42,7 @@ import (
 )
 
 // VERSION is the current version of the SDK.
-const VERSION = "2.0.1"
+const VERSION = "2.1.0"
 
 // Client represents the Generator Labs API client and provides access to
 // RBL monitoring, contact management, and certificate monitoring operations.
@@ -57,6 +57,7 @@ type Client struct {
 	// Config contains timeout, retry, and base URL settings
 	Config  *Config
 	handler *RequestHandler
+	account *Account
 	rbl     *RBL
 	contact *Contact
 	cert    *Cert
@@ -117,6 +118,21 @@ func New(accountSID, authToken string, config ...*Config) (*Client, error) {
 	client.handler = NewRequestHandler(accountSID, authToken, cfg)
 
 	return client, nil
+}
+
+// Account returns the Account API namespace.
+//
+// The Account namespace provides access to the account, its balance, its usage and
+// its scheduled checks.
+//
+// Example:
+//
+//	account, err := client.Account().Get()
+func (c *Client) Account() *Account {
+	if c.account == nil {
+		c.account = &Account{handler: c.handler}
+	}
+	return c.account
 }
 
 // RBL returns the RBL monitoring API namespace.

@@ -69,12 +69,17 @@ func (r *RBL) Check() *RBLCheck {
 // Listings retrieves current RBL listings for all monitored hosts.
 //
 // Returns a list of all hosts that are currently listed on one or more RBLs.
+// A map of query parameters (page, page_size) and request options can be passed.
 //
 // Example:
 //
 //	listings, err := client.RBL().Listings()
-func (r *RBL) Listings() (*Response, error) {
-	return r.handler.Get("rbl/listings", nil)
+//
+//	// Second page
+//	listings, err := client.RBL().Listings(map[string]interface{}{"page": 2})
+func (r *RBL) Listings(args ...interface{}) (*Response, error) {
+	_, params, opts, _ := requestArgs(args)
+	return r.handler.Get("rbl/listings", params, opts...)
 }
 
 // RBLCheck handles manual RBL check operations.
@@ -99,8 +104,8 @@ type RBLCheck struct {
 //	    "host": "1.2.3.4",
 //	    "details": true,
 //	})
-func (c *RBLCheck) Start(params map[string]interface{}) (*Response, error) {
-	return c.handler.Post("rbl/check/start", params)
+func (c *RBLCheck) Start(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return c.handler.Post("rbl/check/start", params, append(opts, idempotent)...)
 }
 
 // Status retrieves the status of a manual RBL check.
@@ -113,8 +118,8 @@ func (c *RBLCheck) Start(params map[string]interface{}) (*Response, error) {
 // Example:
 //
 //	status, err := client.RBL().Check().Status("PP1234567890abcdef...", nil)
-func (c *RBLCheck) Status(id string, params map[string]interface{}) (*Response, error) {
-	return c.handler.Get(fmt.Sprintf("rbl/check/status/%s", id), params)
+func (c *RBLCheck) Status(id string, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return c.handler.Get(fmt.Sprintf("rbl/check/status/%s", id), params, opts...)
 }
 
 // RBLHosts handles host management operations.
@@ -131,7 +136,7 @@ type RBLHosts struct {
 //   - Get(): Retrieves all hosts (first page)
 //   - Get(map[string]interface{}{"status": "active"}): Retrieves filtered hosts
 //   - Get("HTxxxxxxxxxx"): Retrieves a single host by ID
-//   - Get("HTxxxxxxxxxx", "HTyyyyyyyyyy"): Retrieves multiple hosts by IDs
+//   - Get("HTxxxxxxxxxx", WithFields("id")): Any call takes request options last
 //
 // For automatic pagination across all pages, use GetAll() instead.
 //
@@ -150,27 +155,8 @@ type RBLHosts struct {
 //
 //	// Get single host
 //	host, err := client.RBL().Hosts().Get("HT1a2b3c4d5e6f7890abcdef1234567890")
-//
-//	// Get multiple hosts
-//	hosts, err := client.RBL().Hosts().Get("HTxxxxxxxx", "HTyyyyyyyy")
-func (h *RBLHosts) Get(ids ...interface{}) (*Response, error) {
-	if len(ids) == 0 {
-		return h.handler.Get("rbl/hosts", nil)
-	}
-	if len(ids) == 1 {
-		// Check if it's a map[string]interface{} (parameters)
-		if params, ok := ids[0].(map[string]interface{}); ok {
-			return h.handler.Get("rbl/hosts", params)
-		}
-		return h.handler.Get(fmt.Sprintf("rbl/hosts/%v", ids[0]), nil)
-	}
-	// Multiple IDs - convert to comma-separated string
-	idStr := fmt.Sprintf("%v", ids[0])
-	for i := 1; i < len(ids); i++ {
-		idStr = fmt.Sprintf("%s,%v", idStr, ids[i])
-	}
-	params := map[string]interface{}{"ids": idStr}
-	return h.handler.Get("rbl/hosts", params)
+func (h *RBLHosts) Get(args ...interface{}) (*Response, error) {
+	return h.handler.getResource("rbl/hosts", args)
 }
 
 // GetAll retrieves all hosts with automatic pagination.
@@ -204,7 +190,7 @@ func (h *RBLHosts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 
 		// Extract hosts from response
 		hosts := []interface{}{}
-		if hostList, ok := response.Data["hosts"].([]interface{}); ok {
+		if hostList, ok := response.Data["data"].([]interface{}); ok {
 			hosts = hostList
 		}
 
@@ -245,8 +231,8 @@ func (h *RBLHosts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 //	    "type": "rbl",
 //	    "profile": "RP9f8e7d6c5b4a3210fedcba0987654321",
 //	})
-func (h *RBLHosts) Create(params map[string]interface{}) (*Response, error) {
-	return h.handler.Post("rbl/hosts", params)
+func (h *RBLHosts) Create(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return h.handler.Post("rbl/hosts", params, append(opts, idempotent)...)
 }
 
 // Update updates a monitored host.
@@ -263,8 +249,8 @@ func (h *RBLHosts) Create(params map[string]interface{}) (*Response, error) {
 //	_, err := client.RBL().Hosts().Update("HT1a2b3c4d5e6f7890abcdef1234567890", map[string]interface{}{
 //	    "name": "Updated Server Name",
 //	})
-func (h *RBLHosts) Update(id interface{}, params map[string]interface{}) (*Response, error) {
-	return h.handler.Put(fmt.Sprintf("rbl/hosts/%v", id), params)
+func (h *RBLHosts) Update(id interface{}, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return h.handler.Put(fmt.Sprintf("rbl/hosts/%v", id), params, opts...)
 }
 
 // Delete deletes a monitored host.
@@ -275,8 +261,8 @@ func (h *RBLHosts) Update(id interface{}, params map[string]interface{}) (*Respo
 // Example:
 //
 //	_, err := client.RBL().Hosts().Delete("HT1a2b3c4d5e6f7890abcdef1234567890")
-func (h *RBLHosts) Delete(id interface{}) (*Response, error) {
-	return h.handler.Delete(fmt.Sprintf("rbl/hosts/%v", id))
+func (h *RBLHosts) Delete(id interface{}, opts ...RequestOption) (*Response, error) {
+	return h.handler.Delete(fmt.Sprintf("rbl/hosts/%v", id), opts...)
 }
 
 // Pause temporarily pauses monitoring for a host.
@@ -287,8 +273,8 @@ func (h *RBLHosts) Delete(id interface{}) (*Response, error) {
 // Example:
 //
 //	_, err := client.RBL().Hosts().Pause("HT1a2b3c4d5e6f7890abcdef1234567890")
-func (h *RBLHosts) Pause(id interface{}) (*Response, error) {
-	return h.handler.Post(fmt.Sprintf("rbl/hosts/%v/pause", id), nil)
+func (h *RBLHosts) Pause(id interface{}, opts ...RequestOption) (*Response, error) {
+	return h.handler.Post(fmt.Sprintf("rbl/hosts/%v/pause", id), nil, opts...)
 }
 
 // Resume resumes monitoring for a paused host.
@@ -299,8 +285,8 @@ func (h *RBLHosts) Pause(id interface{}) (*Response, error) {
 // Example:
 //
 //	_, err := client.RBL().Hosts().Resume("HT1a2b3c4d5e6f7890abcdef1234567890")
-func (h *RBLHosts) Resume(id interface{}) (*Response, error) {
-	return h.handler.Post(fmt.Sprintf("rbl/hosts/%v/resume", id), nil)
+func (h *RBLHosts) Resume(id interface{}, opts ...RequestOption) (*Response, error) {
+	return h.handler.Post(fmt.Sprintf("rbl/hosts/%v/resume", id), nil, opts...)
 }
 
 // RBLProfiles handles monitoring profile operations.
@@ -317,7 +303,7 @@ type RBLProfiles struct {
 //   - Get(): Retrieves all profiles (first page)
 //   - Get(map[string]interface{}{"page": 2}): Retrieves with pagination
 //   - Get("RPxxxxxxxxxx"): Retrieves a single profile by ID
-//   - Get("RPxxxxxxxxxx", "RPyyyyyyyyyy"): Retrieves multiple profiles by IDs
+//   - Get("RPxxxxxxxxxx", WithFields("id")): Any call takes request options last
 //
 // For automatic pagination across all pages, use GetAll() instead.
 //
@@ -328,24 +314,8 @@ type RBLProfiles struct {
 //
 //	// Get single profile
 //	profile, err := client.RBL().Profiles().Get("RP9f8e7d6c5b4a3210fedcba0987654321")
-func (p *RBLProfiles) Get(ids ...interface{}) (*Response, error) {
-	if len(ids) == 0 {
-		return p.handler.Get("rbl/profiles", nil)
-	}
-	if len(ids) == 1 {
-		// Check if it's a map[string]interface{} (parameters)
-		if params, ok := ids[0].(map[string]interface{}); ok {
-			return p.handler.Get("rbl/profiles", params)
-		}
-		return p.handler.Get(fmt.Sprintf("rbl/profiles/%v", ids[0]), nil)
-	}
-	// Multiple IDs
-	idStr := fmt.Sprintf("%v", ids[0])
-	for i := 1; i < len(ids); i++ {
-		idStr = fmt.Sprintf("%s,%v", idStr, ids[i])
-	}
-	params := map[string]interface{}{"ids": idStr}
-	return p.handler.Get("rbl/profiles", params)
+func (p *RBLProfiles) Get(args ...interface{}) (*Response, error) {
+	return p.handler.getResource("rbl/profiles", args)
 }
 
 // GetAll retrieves all monitoring profiles with automatic pagination.
@@ -374,7 +344,7 @@ func (p *RBLProfiles) GetAll(params map[string]interface{}) ([]interface{}, erro
 
 		// Extract profiles from response
 		profiles := []interface{}{}
-		if profileList, ok := response.Data["profiles"].([]interface{}); ok {
+		if profileList, ok := response.Data["data"].([]interface{}); ok {
 			profiles = profileList
 		}
 
@@ -411,8 +381,8 @@ func (p *RBLProfiles) GetAll(params map[string]interface{}) ([]interface{}, erro
 //	    "name": "Standard RBL Check",
 //	    "entries": []string{"RB1234567890", "RB0987654321"},
 //	})
-func (p *RBLProfiles) Create(params map[string]interface{}) (*Response, error) {
-	return p.handler.Post("rbl/profiles", params)
+func (p *RBLProfiles) Create(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return p.handler.Post("rbl/profiles", params, append(opts, idempotent)...)
 }
 
 // Update updates a monitoring profile.
@@ -428,8 +398,8 @@ func (p *RBLProfiles) Create(params map[string]interface{}) (*Response, error) {
 //	_, err := client.RBL().Profiles().Update("RP9f8e7d6c5b4a3210fedcba0987654321", map[string]interface{}{
 //	    "name": "Updated Profile Name",
 //	})
-func (p *RBLProfiles) Update(id interface{}, params map[string]interface{}) (*Response, error) {
-	return p.handler.Put(fmt.Sprintf("rbl/profiles/%v", id), params)
+func (p *RBLProfiles) Update(id interface{}, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return p.handler.Put(fmt.Sprintf("rbl/profiles/%v", id), params, opts...)
 }
 
 // Delete deletes a monitoring profile.
@@ -440,8 +410,8 @@ func (p *RBLProfiles) Update(id interface{}, params map[string]interface{}) (*Re
 // Example:
 //
 //	_, err := client.RBL().Profiles().Delete("RP9f8e7d6c5b4a3210fedcba0987654321")
-func (p *RBLProfiles) Delete(id interface{}) (*Response, error) {
-	return p.handler.Delete(fmt.Sprintf("rbl/profiles/%v", id))
+func (p *RBLProfiles) Delete(id interface{}, opts ...RequestOption) (*Response, error) {
+	return p.handler.Delete(fmt.Sprintf("rbl/profiles/%v", id), opts...)
 }
 
 // RBLSources handles RBL source operations.
@@ -459,7 +429,7 @@ type RBLSources struct {
 //   - Get(): Retrieves all sources (first page)
 //   - Get(map[string]interface{}{"status": "active"}): Retrieves filtered sources
 //   - Get("RBxxxxxxxxxx"): Retrieves a single source by ID
-//   - Get("RBxxxxxxxxxx", "RByyyyyyyyyy"): Retrieves multiple sources by IDs
+//   - Get("RBxxxxxxxxxx", WithFields("id")): Any call takes request options last
 //
 // For automatic pagination across all pages, use GetAll() instead.
 //
@@ -470,24 +440,8 @@ type RBLSources struct {
 //
 //	// Get single source
 //	source, err := client.RBL().Sources().Get("RB1234567890abcdef1234567890abcdef")
-func (s *RBLSources) Get(ids ...interface{}) (*Response, error) {
-	if len(ids) == 0 {
-		return s.handler.Get("rbl/sources", nil)
-	}
-	if len(ids) == 1 {
-		// Check if it's a map[string]interface{} (parameters)
-		if params, ok := ids[0].(map[string]interface{}); ok {
-			return s.handler.Get("rbl/sources", params)
-		}
-		return s.handler.Get(fmt.Sprintf("rbl/sources/%v", ids[0]), nil)
-	}
-	// Multiple IDs
-	idStr := fmt.Sprintf("%v", ids[0])
-	for i := 1; i < len(ids); i++ {
-		idStr = fmt.Sprintf("%s,%v", idStr, ids[i])
-	}
-	params := map[string]interface{}{"ids": idStr}
-	return s.handler.Get("rbl/sources", params)
+func (s *RBLSources) Get(args ...interface{}) (*Response, error) {
+	return s.handler.getResource("rbl/sources", args)
 }
 
 // GetAll retrieves all RBL sources with automatic pagination.
@@ -516,7 +470,7 @@ func (s *RBLSources) GetAll(params map[string]interface{}) ([]interface{}, error
 
 		// Extract sources from response
 		sources := []interface{}{}
-		if sourceList, ok := response.Data["sources"].([]interface{}); ok {
+		if sourceList, ok := response.Data["data"].([]interface{}); ok {
 			sources = sourceList
 		}
 
@@ -555,8 +509,8 @@ func (s *RBLSources) GetAll(params map[string]interface{}) ([]interface{}, error
 //	    "name": "Private DNSBL",
 //	    "host": "private-dnsbl.example.com",
 //	})
-func (s *RBLSources) Create(params map[string]interface{}) (*Response, error) {
-	return s.handler.Post("rbl/sources", params)
+func (s *RBLSources) Create(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return s.handler.Post("rbl/sources", params, append(opts, idempotent)...)
 }
 
 // Update updates a custom RBL source.
@@ -574,8 +528,8 @@ func (s *RBLSources) Create(params map[string]interface{}) (*Response, error) {
 //	_, err := client.RBL().Sources().Update("RB1234567890abcdef1234567890abcdef", map[string]interface{}{
 //	    "name": "Updated Source Name",
 //	})
-func (s *RBLSources) Update(id interface{}, params map[string]interface{}) (*Response, error) {
-	return s.handler.Put(fmt.Sprintf("rbl/sources/%v", id), params)
+func (s *RBLSources) Update(id interface{}, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return s.handler.Put(fmt.Sprintf("rbl/sources/%v", id), params, opts...)
 }
 
 // Delete deletes a custom RBL source.
@@ -587,8 +541,8 @@ func (s *RBLSources) Update(id interface{}, params map[string]interface{}) (*Res
 // Example:
 //
 //	_, err := client.RBL().Sources().Delete("RB1234567890abcdef1234567890abcdef")
-func (s *RBLSources) Delete(id interface{}) (*Response, error) {
-	return s.handler.Delete(fmt.Sprintf("rbl/sources/%v", id))
+func (s *RBLSources) Delete(id interface{}, opts ...RequestOption) (*Response, error) {
+	return s.handler.Delete(fmt.Sprintf("rbl/sources/%v", id), opts...)
 }
 
 // Pause temporarily pauses an RBL source.
@@ -599,8 +553,8 @@ func (s *RBLSources) Delete(id interface{}) (*Response, error) {
 // Example:
 //
 //	_, err := client.RBL().Sources().Pause("RB1234567890abcdef1234567890abcdef")
-func (s *RBLSources) Pause(id interface{}) (*Response, error) {
-	return s.handler.Post(fmt.Sprintf("rbl/sources/%v/pause", id), nil)
+func (s *RBLSources) Pause(id interface{}, opts ...RequestOption) (*Response, error) {
+	return s.handler.Post(fmt.Sprintf("rbl/sources/%v/pause", id), nil, opts...)
 }
 
 // Resume resumes a paused RBL source.
@@ -611,6 +565,6 @@ func (s *RBLSources) Pause(id interface{}) (*Response, error) {
 // Example:
 //
 //	_, err := client.RBL().Sources().Resume("RB1234567890abcdef1234567890abcdef")
-func (s *RBLSources) Resume(id interface{}) (*Response, error) {
-	return s.handler.Post(fmt.Sprintf("rbl/sources/%v/resume", id), nil)
+func (s *RBLSources) Resume(id interface{}, opts ...RequestOption) (*Response, error) {
+	return s.handler.Post(fmt.Sprintf("rbl/sources/%v/resume", id), nil, opts...)
 }

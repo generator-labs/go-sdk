@@ -40,7 +40,7 @@ func makeHosts(count, offset int) []interface{} {
 
 func TestGetAllSinglePage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := paginatedResponse(makeHosts(3, 0), "hosts", 1, 1, 3)
+		resp := paginatedResponse(makeHosts(3, 0), "data", 1, 1, 3)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
@@ -75,7 +75,7 @@ func TestGetAllMultiplePages(t *testing.T) {
 			items = makeHosts(1, 4)
 		}
 
-		resp := paginatedResponse(items, "hosts", page, 3, 5)
+		resp := paginatedResponse(items, "data", page, 3, 5)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
@@ -102,7 +102,7 @@ func TestGetAllMultiplePages(t *testing.T) {
 
 func TestGetAllEmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := paginatedResponse([]interface{}{}, "hosts", 1, 1, 0)
+		resp := paginatedResponse([]interface{}{}, "data", 1, 1, 0)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
@@ -130,7 +130,7 @@ func TestGetAllCustomPageSize(t *testing.T) {
 			t.Errorf("Expected page_size=50, got %s", pageSize)
 		}
 
-		resp := paginatedResponse(makeHosts(1, 0), "hosts", 1, 1, 1)
+		resp := paginatedResponse(makeHosts(1, 0), "data", 1, 1, 1)
 		resp["page_size"] = float64(50)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
@@ -159,7 +159,7 @@ func TestGetAllContactsResourceKey(t *testing.T) {
 				map[string]interface{}{"name": "contact_a"},
 				map[string]interface{}{"name": "contact_b"},
 			},
-			"contacts", 1, 1, 2,
+			"data", 1, 1, 2,
 		)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)

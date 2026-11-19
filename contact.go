@@ -55,7 +55,7 @@ type Contacts struct {
 //   - Get(): Retrieves all contacts (first page)
 //   - Get(map[string]interface{}{"status": "active"}): Retrieves filtered contacts
 //   - Get("COxxxxxxxxxx"): Retrieves a single contact by ID
-//   - Get("COxxxxxxxxxx", "COyyyyyyyyyy"): Retrieves multiple contacts by IDs
+//   - Get("COxxxxxxxxxx", WithFields("id")): Any call takes request options last
 //
 // For automatic pagination across all pages, use GetAll() instead.
 //
@@ -66,24 +66,8 @@ type Contacts struct {
 //
 //	// Get single contact
 //	contact, err := client.Contact().Contacts().Get("CO1234567890abcdef1234567890abcdef")
-func (c *Contacts) Get(ids ...interface{}) (*Response, error) {
-	if len(ids) == 0 {
-		return c.handler.Get("contact/contacts", nil)
-	}
-	if len(ids) == 1 {
-		// Check if it's a map[string]interface{} (parameters)
-		if params, ok := ids[0].(map[string]interface{}); ok {
-			return c.handler.Get("contact/contacts", params)
-		}
-		return c.handler.Get(fmt.Sprintf("contact/contacts/%v", ids[0]), nil)
-	}
-	// Multiple IDs
-	idStr := fmt.Sprintf("%v", ids[0])
-	for i := 1; i < len(ids); i++ {
-		idStr = fmt.Sprintf("%s,%v", idStr, ids[i])
-	}
-	params := map[string]interface{}{"ids": idStr}
-	return c.handler.Get("contact/contacts", params)
+func (c *Contacts) Get(args ...interface{}) (*Response, error) {
+	return c.handler.getResource("contact/contacts", args)
 }
 
 // GetAll retrieves all contacts with automatic pagination.
@@ -112,7 +96,7 @@ func (c *Contacts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 
 		// Extract contacts from response
 		contacts := []interface{}{}
-		if contactList, ok := response.Data["contacts"].([]interface{}); ok {
+		if contactList, ok := response.Data["data"].([]interface{}); ok {
 			contacts = contactList
 		}
 
@@ -150,8 +134,8 @@ func (c *Contacts) GetAll(params map[string]interface{}) ([]interface{}, error) 
 //	    "schedule": "every_check",
 //	    "contact_group": "CG4f3e2d1c0b9a8776655443322110fedc",
 //	})
-func (c *Contacts) Create(params map[string]interface{}) (*Response, error) {
-	return c.handler.Post("contact/contacts", params)
+func (c *Contacts) Create(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return c.handler.Post("contact/contacts", params, append(opts, idempotent)...)
 }
 
 // Update updates a contact.
@@ -168,8 +152,8 @@ func (c *Contacts) Create(params map[string]interface{}) (*Response, error) {
 //	_, err := client.Contact().Contacts().Update("CO1234567890abcdef1234567890abcdef", map[string]interface{}{
 //	    "name": "Updated Contact Name",
 //	})
-func (c *Contacts) Update(id interface{}, params map[string]interface{}) (*Response, error) {
-	return c.handler.Put(fmt.Sprintf("contact/contacts/%v", id), params)
+func (c *Contacts) Update(id interface{}, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return c.handler.Put(fmt.Sprintf("contact/contacts/%v", id), params, opts...)
 }
 
 // Delete deletes a contact.
@@ -180,8 +164,8 @@ func (c *Contacts) Update(id interface{}, params map[string]interface{}) (*Respo
 // Example:
 //
 //	_, err := client.Contact().Contacts().Delete("CO1234567890abcdef1234567890abcdef")
-func (c *Contacts) Delete(id interface{}) (*Response, error) {
-	return c.handler.Delete(fmt.Sprintf("contact/contacts/%v", id))
+func (c *Contacts) Delete(id interface{}, opts ...RequestOption) (*Response, error) {
+	return c.handler.Delete(fmt.Sprintf("contact/contacts/%v", id), opts...)
 }
 
 // Pause temporarily pauses a contact.
@@ -192,8 +176,8 @@ func (c *Contacts) Delete(id interface{}) (*Response, error) {
 // Example:
 //
 //	_, err := client.Contact().Contacts().Pause("CO1234567890abcdef1234567890abcdef")
-func (c *Contacts) Pause(id interface{}) (*Response, error) {
-	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/pause", id), nil)
+func (c *Contacts) Pause(id interface{}, opts ...RequestOption) (*Response, error) {
+	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/pause", id), nil, opts...)
 }
 
 // Resume re-activates a paused contact.
@@ -204,8 +188,8 @@ func (c *Contacts) Pause(id interface{}) (*Response, error) {
 // Example:
 //
 //	_, err := client.Contact().Contacts().Resume("CO1234567890abcdef1234567890abcdef")
-func (c *Contacts) Resume(id interface{}) (*Response, error) {
-	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/resume", id), nil)
+func (c *Contacts) Resume(id interface{}, opts ...RequestOption) (*Response, error) {
+	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/resume", id), nil, opts...)
 }
 
 // Confirm confirms a pending contact using a confirmation code.
@@ -220,8 +204,8 @@ func (c *Contacts) Resume(id interface{}) (*Response, error) {
 //	_, err := client.Contact().Contacts().Confirm("CO1234567890abcdef1234567890abcdef", map[string]interface{}{
 //	    "authcode": "3Kx3se",
 //	})
-func (c *Contacts) Confirm(id interface{}, params map[string]interface{}) (*Response, error) {
-	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/confirm", id), params)
+func (c *Contacts) Confirm(id interface{}, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/confirm", id), params, append(opts, idempotent)...)
 }
 
 // Resend resends the confirmation to a pending contact.
@@ -232,8 +216,8 @@ func (c *Contacts) Confirm(id interface{}, params map[string]interface{}) (*Resp
 // Example:
 //
 //	_, err := client.Contact().Contacts().Resend("CO1234567890abcdef1234567890abcdef")
-func (c *Contacts) Resend(id interface{}) (*Response, error) {
-	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/resend", id), nil)
+func (c *Contacts) Resend(id interface{}, opts ...RequestOption) (*Response, error) {
+	return c.handler.Post(fmt.Sprintf("contact/contacts/%v/resend", id), nil, append(opts, idempotent)...)
 }
 
 // Groups handles contact group management operations.
@@ -250,7 +234,7 @@ type Groups struct {
 //   - Get(): Retrieves all groups (first page)
 //   - Get(map[string]interface{}{"page": 2}): Retrieves with pagination
 //   - Get("CGxxxxxxxxxx"): Retrieves a single group by ID
-//   - Get("CGxxxxxxxxxx", "CGyyyyyyyyyy"): Retrieves multiple groups by IDs
+//   - Get("CGxxxxxxxxxx", WithFields("id")): Any call takes request options last
 //
 // For automatic pagination across all pages, use GetAll() instead.
 //
@@ -261,24 +245,8 @@ type Groups struct {
 //
 //	// Get single group
 //	group, err := client.Contact().Groups().Get("CG4f3e2d1c0b9a8776655443322110fedc")
-func (g *Groups) Get(ids ...interface{}) (*Response, error) {
-	if len(ids) == 0 {
-		return g.handler.Get("contact/groups", nil)
-	}
-	if len(ids) == 1 {
-		// Check if it's a map[string]interface{} (parameters)
-		if params, ok := ids[0].(map[string]interface{}); ok {
-			return g.handler.Get("contact/groups", params)
-		}
-		return g.handler.Get(fmt.Sprintf("contact/groups/%v", ids[0]), nil)
-	}
-	// Multiple IDs
-	idStr := fmt.Sprintf("%v", ids[0])
-	for i := 1; i < len(ids); i++ {
-		idStr = fmt.Sprintf("%s,%v", idStr, ids[i])
-	}
-	params := map[string]interface{}{"ids": idStr}
-	return g.handler.Get("contact/groups", params)
+func (g *Groups) Get(args ...interface{}) (*Response, error) {
+	return g.handler.getResource("contact/groups", args)
 }
 
 // GetAll retrieves all contact groups with automatic pagination.
@@ -307,7 +275,7 @@ func (g *Groups) GetAll(params map[string]interface{}) ([]interface{}, error) {
 
 		// Extract groups from response
 		groups := []interface{}{}
-		if groupList, ok := response.Data["groups"].([]interface{}); ok {
+		if groupList, ok := response.Data["data"].([]interface{}); ok {
 			groups = groupList
 		}
 
@@ -341,8 +309,8 @@ func (g *Groups) GetAll(params map[string]interface{}) ([]interface{}, error) {
 //	    "name": "Operations Team",
 //	    "contacts": []string{"CO1234567890", "CO0987654321"},
 //	})
-func (g *Groups) Create(params map[string]interface{}) (*Response, error) {
-	return g.handler.Post("contact/groups", params)
+func (g *Groups) Create(params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return g.handler.Post("contact/groups", params, append(opts, idempotent)...)
 }
 
 // Update updates a contact group.
@@ -358,8 +326,8 @@ func (g *Groups) Create(params map[string]interface{}) (*Response, error) {
 //	_, err := client.Contact().Groups().Update("CG4f3e2d1c0b9a8776655443322110fedc", map[string]interface{}{
 //	    "name": "Updated Group Name",
 //	})
-func (g *Groups) Update(id interface{}, params map[string]interface{}) (*Response, error) {
-	return g.handler.Put(fmt.Sprintf("contact/groups/%v", id), params)
+func (g *Groups) Update(id interface{}, params map[string]interface{}, opts ...RequestOption) (*Response, error) {
+	return g.handler.Put(fmt.Sprintf("contact/groups/%v", id), params, opts...)
 }
 
 // Delete deletes a contact group.
@@ -370,6 +338,6 @@ func (g *Groups) Update(id interface{}, params map[string]interface{}) (*Respons
 // Example:
 //
 //	_, err := client.Contact().Groups().Delete("CG4f3e2d1c0b9a8776655443322110fedc")
-func (g *Groups) Delete(id interface{}) (*Response, error) {
-	return g.handler.Delete(fmt.Sprintf("contact/groups/%v", id))
+func (g *Groups) Delete(id interface{}, opts ...RequestOption) (*Response, error) {
+	return g.handler.Delete(fmt.Sprintf("contact/groups/%v", id), opts...)
 }
